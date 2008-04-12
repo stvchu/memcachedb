@@ -1,0 +1,15 @@
+Special thanks go to people who have volunteered their time, effort,
+and ideas to make this software available. (Words quoted from squid)
+
+* Great Memcached community! The code of memcachedb is most based on 
+Memcached <http://www.danga.com/memcached/>. Memcachedb 1.0.x is 
+based on Memcached 1.2.x, and the preview version 0.1.x is based
+on Memcached 1.1.x.
+
+* Some of 0.1.x version code is inspired from Tugela Cache 
+<http://meta.wikimedia.org/wiki/Tugela_Cache>.
+
+* Novey Donar<forever.sky81@gmail.com> contributed some code of 0.1.x
+version.
+
+* Caokai<caokai@staff.sina.com.cn> contributed some code of replication.

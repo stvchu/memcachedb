@@ -1,0 +1,38 @@
+What is Memcachedb?
+*******************
+Memcachedb is a distributed key-value storage system designed for persistent. It is NOT a cache solution, but a persistent storage engine for fast and reliable key-value based object storage and retrieval. It conforms to memcache protocol(not completed, see below), so any memcached client can have connectivity with it. Memcachedb uses Berkeley DB as a storing backend, so lots of features including transaction and replication are supported. 
+
+Memcachedb Features
+*******************
+* High performance read/write for a key-value based object
+* High reliable persistent storage with transcation
+* High availability data storage with replication
+* Memcache protocol compatibility
+
+Supported memcache commands
+***************************
+get(also mutiple get) 
+set, add, replace
+incr, decr
+delete
+stats(malloc, maps)
+
+Private commands
+****************
+db_checkpoint
+db_archive
+rep_ismaster
+rep_whoismaster
+rep_set_priority
+rep_set_ack_policy
+rep_set_ack_timeout
+rep_set_bulk
+rep_set_request
+stats(bdb, rep)
+
+Some Warning
+************
+Expire time has been discarded in memcachedb(we are for persistent:p), so you should not use any corresponding features of clients. The daemon does nothing while you give a expire time of item.
+
+For more info, see: http://memcachedb.org
+
