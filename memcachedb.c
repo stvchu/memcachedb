@@ -1154,6 +1154,8 @@ static inline void process_pget_command(conn *c, token_t *tokens, size_t ntokens
     size_t nkey;
     int i = 0;
     int ret = 0;
+    int limit = 0; /* we get all matched item by default */
+    int n = 0; /* count for current sent items */
     item *it;
     token_t *key_token = &tokens[KEY_TOKEN];
     DBT dbkey, dbdata;
@@ -1168,6 +1170,15 @@ static inline void process_pget_command(conn *c, token_t *tokens, size_t ntokens
         out_string(c, "CLIENT_ERROR bad command line format");
         return;
     }
+    if(ntokens == 4) {
+        limit = strtol(tokens[2].value, NULL, 10);
+
+        if(errno == ERANGE) {
+            out_string(c, "CLIENT_ERROR bad command line format");
+            return;
+        }
+    }
+
     memcpy(prefix, key_token->value, key_token->length);
     prefix[key_token->length] = '\0';
 
@@ -1242,6 +1253,12 @@ static inline void process_pget_command(conn *c, token_t *tokens, size_t ntokens
 
         *(c->ilist + i) = it;
         i++;
+
+        n++;
+        /* here we check if itemn reach the limit */ 
+        if (limit > 0 && n == limit ){
+            break;
+        }
 
         /* alloc next item buffer */
         it = item_alloc(key, nkey, 0, 0);
@@ -1711,7 +1728,7 @@ static void process_command(conn *c, char *command) {
 
         process_get_command(c, tokens, ntokens);
 
-    } else if (ntokens == 3 && 
+    } else if (ntokens >= 3 && ntokens <= 4 && 
                ((strcmp(tokens[COMMAND_TOKEN].value, "pkget") == 0 && (comm = PKGET)) ||
                 (strcmp(tokens[COMMAND_TOKEN].value, "pvget") == 0 && (comm = PVGET) && bdb_settings.sdb_on))) {
 

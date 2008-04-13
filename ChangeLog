@@ -1,3 +1,8 @@
+2008-04-13 Steve Chu <stvchu@gmail.com>
+   * Changes:
+     - allow limitation to 'pkget' and 'pvget' command, 
+	 use 'pkget/pvget <prefix> [limit]' to get limited matched items. 
+
 2008-04-03 Steve Chu <stvchu@gmail.com>
    * New features: 
      - add '-T' option to set database type, 'btree' or 'hash'
