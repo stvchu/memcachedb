@@ -2,6 +2,7 @@
    * Changes:
      - allow limitation to 'pkget' and 'pvget' command, 
 	 use 'pkget/pvget <prefix> [limit]' to get limited matched items. 
+	 - 'memcache.py' is also patched for this feature.
 
 2008-04-03 Steve Chu <stvchu@gmail.com>
    * New features: 
