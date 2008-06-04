@@ -58,8 +58,8 @@ void bdb_settings_init(void)
     bdb_settings.rep_ack_timeout = 20000;
     bdb_settings.rep_ack_policy = DB_REPMGR_ACKS_ONE_PEER;
     bdb_settings.rep_bulk = 1;
-    bdb_settings.rep_req_min = 2;
-    bdb_settings.rep_req_max = 8;
+    bdb_settings.rep_req_min = 40000;
+    bdb_settings.rep_req_max = 1280000;
     bdb_settings.db_type = DB_BTREE;
 }
 
@@ -75,6 +75,25 @@ void bdb_env_init(void){
     env->set_errfile(env, stderr);
     env->set_errpfx(env, "Memcachedb");
     env->set_msgfile(env, stderr);
+
+    /* set BerkeleyDB verbose*/
+    if (settings.verbose > 1) {
+        if ((ret = env->set_verbose(env, DB_VERB_FILEOPS_ALL, 1)) != 0) {
+            fprintf(stderr, "env->set_verbose[DB_VERB_FILEOPS_ALL]: %s\n",
+                    db_strerror(ret));
+            exit(EXIT_FAILURE);
+        }
+        if ((ret = env->set_verbose(env, DB_VERB_DEADLOCK, 1)) != 0) {
+            fprintf(stderr, "env->set_verbose[DB_VERB_DEADLOCK]: %s\n",
+                    db_strerror(ret));
+            exit(EXIT_FAILURE);
+        }
+        if ((ret = env->set_verbose(env, DB_VERB_RECOVERY, 1)) != 0) {
+            fprintf(stderr, "env->set_verbose[DB_VERB_RECOVERY]: %s\n",
+                    db_strerror(ret));
+            exit(EXIT_FAILURE);
+        }
+    }
 
     /* set MPOOL size */
     env->set_cachesize(env, 0, bdb_settings.cache_size, 0);
@@ -102,10 +121,12 @@ void bdb_env_init(void){
     
     if(bdb_settings.is_replicated) {
         bdb_settings.env_flags |= DB_INIT_REP;
-        if ((ret = env->set_verbose(env, DB_VERB_REPLICATION, 1)) != 0) {
-            fprintf(stderr, "env->set_verbose[DB_VERB_REPLICATION]: %s\n",
-                    db_strerror(ret));
-            exit(EXIT_FAILURE);
+        if (settings.verbose > 1) {
+            if ((ret = env->set_verbose(env, DB_VERB_REPLICATION, 1)) != 0) {
+                fprintf(stderr, "env->set_verbose[DB_VERB_REPLICATION]: %s\n",
+                        db_strerror(ret));
+                exit(EXIT_FAILURE);
+            }
         }
         env->set_event_notify(env, bdb_event_callback);
         env->repmgr_set_ack_policy(env, bdb_settings.rep_ack_policy);
@@ -113,7 +134,7 @@ void bdb_env_init(void){
         env->rep_set_timeout(env, DB_REP_CHECKPOINT_DELAY, 0);
         env->rep_set_config(env, DB_REP_CONF_BULK, bdb_settings.rep_bulk);
         env->rep_set_priority(env, bdb_settings.rep_priority);
-        env->set_rep_request(env, bdb_settings.rep_req_min, bdb_settings.rep_req_max);
+        env->rep_set_request(env, bdb_settings.rep_req_min, bdb_settings.rep_req_max);
 
         if ((ret = env->repmgr_set_local_site(env, bdb_settings.rep_localhost, bdb_settings.rep_localport, 0)) != 0) {
             fprintf(stderr, "repmgr_set_local_site[%s:%d]: %s\n", 
@@ -302,7 +323,9 @@ void *bdb_chkpoint_thread(void *arg)
     DB_ENV *dbenv;
     int ret;
     dbenv = arg;
-    dbenv->errx(dbenv, "checkpoint thread created: %lu", (u_long)pthread_self());
+    if (settings.verbose > 1) {
+        dbenv->errx(dbenv, "checkpoint thread created: %lu", (u_long)pthread_self());
+    }
     for (;; sleep(bdb_settings.chkpoint_val)) {
         if ((ret = dbenv->txn_checkpoint(dbenv, 0, 0, 0)) != 0) {
             dbenv->err(dbenv, ret, "checkpoint thread");
@@ -316,7 +339,9 @@ void *bdb_dl_detect_thread(void *arg)
     DB_ENV *dbenv;
     struct timeval t;
     dbenv = arg;
-    dbenv->errx(dbenv, "deadlock detecting thread created: %lu", (u_long)pthread_self());
+    if (settings.verbose > 1) {
+        dbenv->errx(dbenv, "deadlock detecting thread created: %lu", (u_long)pthread_self());
+    }
     while (!daemon_quit) {
         t.tv_sec = 0;
         t.tv_usec = bdb_settings.dldetect_val;

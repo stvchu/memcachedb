@@ -26,7 +26,7 @@
 #include <sys/types.h>
 #include <stdlib.h>
 
-#define MAX_ITEM_FREELIST_LENGTH 5000
+#define MAX_ITEM_FREELIST_LENGTH 4000
 #define INIT_ITEM_FREELIST_LENGTH 500
 
 static size_t item_make_header(const uint8_t nkey, const int flags, const int nbytes, char *suffix, uint8_t *nsuffix);
@@ -35,6 +35,17 @@ static item *item_from_freelist(size_t ntotal);
 static item **freeitem;
 static int freeitemtotal;
 static int freeitemcurr;
+
+void item_init(void) {
+    freeitemtotal = INIT_ITEM_FREELIST_LENGTH;
+    freeitemcurr  = 0;
+
+    freeitem = (item **)malloc( sizeof(item *) * freeitemtotal );
+    if (freeitem == NULL) {
+        perror("malloc()");
+    }
+    return;
+}
 
 /**
  * Generates the variable-sized part of the header for an object.
@@ -75,15 +86,27 @@ static item *item_from_freelist(size_t ntotal) {
     return s;
 }
 
-void item_init(void) {
-    freeitemtotal = INIT_ITEM_FREELIST_LENGTH;
-    freeitemcurr  = 0;
-
-    freeitem = (item **)malloc( sizeof(item *) * freeitemtotal );
-    if (freeitem == NULL) {
-        perror("malloc()");
+/*
+ * Adds a item to the freelist. 
+ */
+static int item_add_to_freelist(item *it) {
+    if (freeitemcurr < freeitemtotal) {
+        freeitem[freeitemcurr++] = it;
+        return 0;
+    } else {
+        if (freeitemtotal >= MAX_ITEM_FREELIST_LENGTH){
+            return 1;
+        }
+        /* try to enlarge free item buffer array */
+        item **new_freeitem = (item **)realloc(freeitem, sizeof(item *) * freeitemtotal * 2);
+        if (new_freeitem) {
+            freeitemtotal *= 2;
+            freeitem = new_freeitem;
+            freeitem[freeitemcurr++] = it;
+            return 0;
+        }
     }
-    return;
+    return 1;
 }
 
 /*
@@ -110,26 +133,16 @@ item *do_item_alloc(char *key, const size_t nkey, const int flags, const int nby
 }
 
 /*
- * Adds a item to the freelist. 0 = success. Should call this using
- * item_add_to_freelist() for thread safety.
+ * free a item. Should call this using
+ * item_free() for thread safety.
  */
-int do_item_add_to_freelist(item *it) {
-    if (freeitemcurr < freeitemtotal) {
-        freeitem[freeitemcurr++] = it;
-        return 0;
-    } else {
-        if (freeitemtotal >= MAX_ITEM_FREELIST_LENGTH){
-            return 1;
-        }
-        /* try to enlarge free item buffer array */
-        item **new_freeitem = realloc(freeitem, freeitemtotal * 2);
-        if (new_freeitem) {
-            freeitemtotal *= 2;
-            freeitem = new_freeitem;
-            freeitem[freeitemcurr++] = it;
-            return 0;
-        }
-    }
-    return 1;
-}
 
+int do_item_free(item *it) {
+   if (NULL == it)
+       return 0;
+
+   if (0 != item_add_to_freelist(it)) {
+       free(it);   
+   }
+   return 0;
+}

@@ -105,6 +105,7 @@ struct stats stats;
 struct settings settings;
 
 struct bdb_settings bdb_settings;
+struct bdb_version bdb_version;
 DB_ENV *env;
 DB *dbp;
 DB *sdbp;
@@ -349,17 +350,13 @@ static void conn_cleanup(conn *c) {
     assert(c != NULL);
 
     if (c->item) {
-        if(item_add_to_freelist(c->item)) {
-            free(c->item);
-        }
+        item_free(c->item);
         c->item = 0;
     }
 
     if (c->ileft != 0) {
         for (; c->ileft > 0; c->ileft--,c->icurr++) {
-            if(item_add_to_freelist(*(c->icurr))) {
-                free(*(c->icurr));
-            }
+            item_free(*(c->icurr));
         }
     }
 
@@ -672,10 +669,7 @@ static void complete_nread(conn *c) {
           out_string(c, "NOT_STORED");
     }
 
-    /* push the item buffer to freelist */
-    if(item_add_to_freelist(c->item)) {
-        free(c->item);
-    }
+    item_free(c->item);
     c->item = 0;
 }
 
@@ -862,6 +856,7 @@ static void process_stat(conn *c, token_t *tokens, const size_t ntokens) {
         char temp[512];
         char *pos = temp;
         int ret;
+        pos += sprintf(pos, "STAT db_ver %d.%d.%d\r\n", bdb_version.majver, bdb_version.minver, bdb_version.patch);
         pos += sprintf(pos, "STAT cache_size %u\r\n", bdb_settings.cache_size);
         /* get page size */
         if((ret = dbp->get_pagesize(dbp, &bdb_settings.page_size)) == 0){
@@ -940,10 +935,9 @@ static void process_stat(conn *c, token_t *tokens, const size_t ntokens) {
             if (env->rep_get_config(env, DB_REP_CONF_BULK, &bdb_settings.rep_bulk) == 0){
                 pos += sprintf(pos, "STAT rep_bulk %d\r\n", bdb_settings.rep_bulk);
             }
-            /* rep_get_request not available in db.h, may add in bdb 4.7 release */
-            /* if (env->get_rep_request(env, &bdb_settings.rep_req_min, &bdb_settings.rep_req_max) == 0){ */
+            if (env->rep_get_request(env, &bdb_settings.rep_req_min, &bdb_settings.rep_req_max) == 0){ 
                 pos += sprintf(pos, "STAT rep_request %u/%u\r\n", bdb_settings.rep_req_min, bdb_settings.rep_req_max);
-            /* } */
+            } 
             if (env->rep_stat(env, &statp, 0) == 0){
                 pos += sprintf(pos, "STAT rep_next_lsn %lu/%lu\r\n", (u_long)statp->st_next_lsn.file, (u_long)statp->st_next_lsn.offset);
             }
@@ -1063,10 +1057,7 @@ static inline void process_get_command(conn *c, token_t *tokens, size_t ntokens)
             dbdata.flags = DB_DBT_USERMEM;
             ret = dbp->get(dbp, NULL, &dbkey, &dbdata, 0); 
             if (ret != 0){
-                /* push the item buffer to freelist */
-                if(item_add_to_freelist(it)) {
-                    free(it);
-                }
+                item_free(it);
                 it = 0;
             }
 
@@ -1218,9 +1209,7 @@ static inline void process_pget_command(conn *c, token_t *tokens, size_t ntokens
 
     if (ret || (0 != strncmp(key, prefix, nkey))){
         /* never leak memory */
-        if(item_add_to_freelist(it)) {
-            free(it);
-        }
+        item_free(it);
         it = 0;
     }
 
@@ -1281,9 +1270,7 @@ static inline void process_pget_command(conn *c, token_t *tokens, size_t ntokens
 
         if (ret || (0 != strncmp(key, prefix, nkey))){
             /* never leak memory */
-            if(item_add_to_freelist(it)) {
-                free(it);
-            }
+            item_free(it);
             it = 0;
             break;
         }
@@ -1392,10 +1379,7 @@ static void process_arithmetic_command(conn *c, token_t *tokens, const size_t nt
 
     out_string(c, add_delta(it, incr, delta, temp, key, nkey));
 
-    /* add item buffer to freelist */
-    if(item_add_to_freelist(it)) {
-        free(it);
-    }
+    item_free(it);
     it = 0;
 
 }
@@ -1658,7 +1642,7 @@ static void process_rep_command(conn *c, token_t *tokens, const size_t ntokens) 
  
         bdb_settings.rep_req_min = req_min < MAX_REP_REQUEST_MIN ? MAX_REP_REQUEST_MIN : req_min;
         bdb_settings.rep_req_max = req_max > MAX_REP_REQUEST_MAX ? MAX_REP_REQUEST_MAX : req_max;
-        if (env->set_rep_request(env, bdb_settings.rep_req_min, bdb_settings.rep_req_max) != 0){
+        if (env->rep_set_request(env, bdb_settings.rep_req_min, bdb_settings.rep_req_max) != 0){
             out_string(c, "SERVER_ERROR env->set_rep_request");
             return;
         }
@@ -2205,10 +2189,7 @@ static void drive_machine(conn *c) {
                 if (c->state == conn_mwrite) {
                     while (c->ileft > 0) {
                         item *it = *(c->icurr);
-                        if(item_add_to_freelist(it)) {
-                            /* Failed to add to freelist, don't leak */
-                            free(it);
-                        }
+                        item_free(it);
                         c->icurr++;
                         c->ileft--;
                     }
@@ -2675,6 +2656,9 @@ int main (int argc, char **argv) {
     settings_init();
     bdb_settings_init();
 
+	/* get Berkeley DB version*/
+    db_version(&(bdb_version.majver), &(bdb_version.minver), &(bdb_version.patch));
+
     /* set stderr non-buffering (for running under, say, daemontools) */
     setbuf(stderr, NULL);
 
@@ -2933,7 +2917,6 @@ int main (int argc, char **argv) {
 
     /* initialize main thread libevent instance */
     main_base = event_init();
-    fprintf(stderr, "Memcachedb: event_init(), main_base: %p\n", main_base);
 
     /* initialize other stuff */
     item_init();

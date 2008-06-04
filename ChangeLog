@@ -1,3 +1,13 @@
+2008-06-03 Steve Chu <stvchu@gmail.com>
+   * new support to BerkeleyDB 4.7
+     - new version is BerkeleyDB 4.7 only, due to the changed bdb api
+     - 'rep_set_request' now use time, not the number of messages
+
+   * Bugfix: 'pkget' and "multiple get" that return lots of items may 
+   cause memory overflow so the daemon crashes. Thanks to Davies Liu <davies.liu@gmail.com>
+
+   * flooded verbose messages of bdb and replication now move to '-vv' option
+
 2008-04-13 Steve Chu <stvchu@gmail.com>
    * Changes:
      - allow limitation to 'pkget' and 'pvget' command, 

@@ -3568,7 +3568,7 @@ if test $ac_cv_libevent_dir != "(system)"; then
   fi
 fi
 
-bdbdir="/usr/local/BerkeleyDB.4.6"
+bdbdir="/usr/local/BerkeleyDB.4.7"
 
 # Check whether --with-bdb was given.
 if test "${with_bdb+set}" = set; then

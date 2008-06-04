@@ -41,8 +41,8 @@
 #define MAX_REP_ACK_POLICY 6
 #define MAX_REP_ACK_TIMEOUT 3600000000ul
 #define MAX_REP_BULK 1
-#define MAX_REP_REQUEST_MAX 256
-#define MAX_REP_REQUEST_MIN 1
+#define MAX_REP_REQUEST_MAX 3600000000ul
+#define MAX_REP_REQUEST_MIN 10000ul
 
 /* Default path for a database, and its env home */
 #define DBFILE "default.db"
@@ -94,6 +94,12 @@ struct settings {
     int num_threads;        /* number of libevent threads to run */
 };
 
+struct bdb_version {
+	int majver;
+	int minver;
+	int patch;
+};
+
 struct bdb_settings {
     char *db_file;    /* db filename, where dbfile located. */
     char *env_home;    /* db env home dir path */
@@ -112,7 +118,7 @@ struct bdb_settings {
     int rep_is_master; /* 1 on YES, 0 on NO, -1 on UNKNOWN, for two sites replication */
     int rep_master_eid; /* replication master's eid */
     u_int32_t rep_start_policy;
-    int rep_priority;
+    u_int32_t rep_priority;
     u_int32_t rep_ack_timeout;
     int rep_ack_policy;
     int rep_bulk;
@@ -239,7 +245,7 @@ void bdb_chkpoint(void);
 /* ibuffer management */
 void item_init(void);
 item *do_item_alloc(char *key, const size_t nkey, const int flags, const int nbytes);
-int do_item_add_to_freelist(item *it);
+int do_item_free(item *it);
 
 /* conn management */
 conn *do_conn_from_freelist();
@@ -284,7 +290,7 @@ int   mt_store_item(item *item, int comm);
 # define conn_add_to_freelist(x)     mt_conn_add_to_freelist(x)
 # define is_listen_thread()          mt_is_listen_thread()
 # define item_alloc(x,y,z,a)         mt_item_alloc(x,y,z,a)
-# define item_add_to_freelist(x)     mt_item_add_to_freelist(x)
+# define item_free(x)                mt_item_free(x)
 # define store_item(x,y)             mt_store_item(x,y)
 
 # define STATS_LOCK()                mt_stats_lock()
@@ -299,7 +305,7 @@ int   mt_store_item(item *item, int comm);
 # define dispatch_event_add(t,c)     event_add(&(c)->event, 0)
 # define is_listen_thread()          1
 # define item_alloc(x,y,z,a)         do_item_alloc(x,y,z,a)
-# define item_add_to_freelist(x)     do_item_add_to_freelist(x)
+# define item_free(x)                do_item_free(x)
 # define store_item(x,y)             do_store_item(x,y)
 # define thread_init(x,y)            0
 
@@ -316,6 +322,7 @@ int   mt_store_item(item *item, int comm);
 extern struct stats stats;
 extern struct settings settings;
 extern struct bdb_settings bdb_settings;
+extern struct bdb_version bdb_version;
 extern DB_ENV *env;
 extern DB *dbp;
 extern DB *sdbp;

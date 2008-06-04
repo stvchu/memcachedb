@@ -87,7 +87,7 @@ if test $ac_cv_libevent_dir != "(system)"; then
 fi
 
 dnl Check BerkeleyDB lib and headers
-bdbdir="/usr/local/BerkeleyDB.4.6"
+bdbdir="/usr/local/BerkeleyDB.4.7"
 AC_ARG_WITH(bdb,
        [  --with-bdb=PATH         Specify path to BerkeleyDB installation ],
        [

@@ -262,11 +262,11 @@ item *mt_item_alloc(char *key, size_t nkey, int flags, int nbytes) {
  *
  * Returns 0 on success, 1 if the buffer couldn't be added.
  */
-int mt_item_add_to_freelist(item *it){
+int mt_item_free(item *it){
     int result;
 
     pthread_mutex_lock(&ibuffer_lock);
-    result = do_item_add_to_freelist(it);
+    result = do_item_free(it);
     pthread_mutex_unlock(&ibuffer_lock);
 
     return result;
@@ -281,7 +281,6 @@ int mt_item_add_to_freelist(item *it){
 static void setup_thread(LIBEVENT_THREAD *me) {
     if (! me->base) {
         me->base = event_init();
-        fprintf(stderr, "Memcachedb: event_init(), me->base: %p\n", me->base);
         if (! me->base) {
             fprintf(stderr, "Can't allocate event base\n");
             exit(1);
