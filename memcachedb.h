@@ -244,14 +244,18 @@ void bdb_chkpoint(void);
 
 /* ibuffer management */
 void item_init(void);
-item *do_item_alloc(char *key, const size_t nkey, const int flags, const int nbytes);
-int do_item_free(item *it);
+item *do_item_from_freelist(size_t ntotal);
+int do_item_add_to_freelist(item *it);
+item *item_alloc1(char *key, const size_t nkey, const int flags, const int nbytes);
+item *item_alloc2(size_t ntotal);
+int item_free(item *it);
+
 
 /* conn management */
 conn *do_conn_from_freelist();
 bool do_conn_add_to_freelist(conn *c);
 
-char *do_add_delta(item *item, const bool incr, const int64_t delta, char *buf, char *key, size_t nkey);
+char *do_add_delta(const bool incr, const int64_t delta, char *buf, char *key, size_t nkey);
 int do_store_item(item *item, int comm);
 
 conn *conn_new(const int sfd, const int init_state, const int event_flags, const int read_buffer_size, const bool is_udp, struct event_base *base);
@@ -276,21 +280,22 @@ int  dispatch_event_add(int thread, conn *c);
 void dispatch_conn_new(int sfd, int init_state, int event_flags, int read_buffer_size, int is_udp);
 
 /* Lock wrappers for cache functions that are called from main loop. */
-char *mt_add_delta(item *item, const int incr, const int64_t delta, char *buf, char *key, size_t nkey);
+char *mt_add_delta(const int incr, const int64_t delta, char *buf, char *key, size_t nkey);
 conn *mt_conn_from_freelist(void);
 bool  mt_conn_add_to_freelist(conn *c);
 int   mt_is_listen_thread(void);
-item *mt_item_alloc(char *key, size_t nkey, int flags, int nbytes);
+item *mt_item_from_freelist(size_t ntotal);
+int mt_item_add_to_freelist(item *it);
 void  mt_stats_lock(void);
 void  mt_stats_unlock(void);
 int   mt_store_item(item *item, int comm);
 
-# define add_delta(x,y,z,a,b,c)          mt_add_delta(x,y,z,a,b,c)
+# define add_delta(x,y,z,a,b)        mt_add_delta(x,y,z,a,b)
 # define conn_from_freelist()        mt_conn_from_freelist()
 # define conn_add_to_freelist(x)     mt_conn_add_to_freelist(x)
 # define is_listen_thread()          mt_is_listen_thread()
-# define item_alloc(x,y,z,a)         mt_item_alloc(x,y,z,a)
-# define item_free(x)                mt_item_free(x)
+# define item_from_freelist(x)       mt_item_from_freelist(x)
+# define item_add_to_freelist(x)     mt_item_add_to_freelist(x)
 # define store_item(x,y)             mt_store_item(x,y)
 
 # define STATS_LOCK()                mt_stats_lock()
@@ -298,16 +303,16 @@ int   mt_store_item(item *item, int comm);
 
 #else /* !USE_THREADS */
 
-# define add_delta(x,y,z,a,b,c)          do_add_delta(x,y,z,a,b,c)
-# define conn_from_freelist()        do_conn_from_freelist()
-# define conn_add_to_freelist(x)     do_conn_add_to_freelist(x)
+# define add_delta(x,y,z,a,b)         do_add_delta(x,y,z,a,b)
+# define conn_from_freelist()         do_conn_from_freelist()
+# define conn_add_to_freelist(x)      do_conn_add_to_freelist(x)
 # define dispatch_conn_new(x,y,z,a,b) conn_new(x,y,z,a,b,main_base)
-# define dispatch_event_add(t,c)     event_add(&(c)->event, 0)
-# define is_listen_thread()          1
-# define item_alloc(x,y,z,a)         do_item_alloc(x,y,z,a)
-# define item_free(x)                do_item_free(x)
-# define store_item(x,y)             do_store_item(x,y)
-# define thread_init(x,y)            0
+# define dispatch_event_add(t,c)      event_add(&(c)->event, 0)
+# define is_listen_thread()           1
+# define item_from_freelist(x)        do_item_from_freelist(x)
+# define item_add_to_freelist(x)      do_item_add_to_freelist(x)
+# define store_item(x,y)              do_store_item(x,y)
+# define thread_init(x,y)             0
 
 # define STATS_LOCK()                /**/
 # define STATS_UNLOCK()              /**/

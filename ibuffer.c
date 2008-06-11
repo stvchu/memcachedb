@@ -12,7 +12,10 @@
  */
 
 /*
- * Free list management for item buffers.
+ * == Item Buffer Management ==
+ *
+ * If item buffer size larger than 'settings.item_buf_size', 
+ * then we use malloc instead.
  */
 
 #include "memcachedb.h"
@@ -30,7 +33,6 @@
 #define INIT_ITEM_FREELIST_LENGTH 500
 
 static size_t item_make_header(const uint8_t nkey, const int flags, const int nbytes, char *suffix, uint8_t *nsuffix);
-static item *item_from_freelist(size_t ntotal);
 
 static item **freeitem;
 static int freeitemtotal;
@@ -45,6 +47,57 @@ void item_init(void) {
         perror("malloc()");
     }
     return;
+}
+
+/*
+ * Returns a item buffer from the freelist, if any. Sholud call
+ * item_from_freelist for thread safty.
+ * */
+item *do_item_from_freelist(size_t ntotal) {
+    item *s;
+    if (ntotal > settings.item_buf_size){
+        if (settings.verbose > 1) {
+            fprintf(stderr, "nototal larger than freelist buf size, try to use malloc instead.\n");
+        }
+        return NULL;
+    }
+    if (settings.verbose > 1) {
+        fprintf(stderr, "nototal smaller than freelist buf size, try to use freelist.\n");
+    }
+
+    if (freeitemcurr > 0) {
+        s = freeitem[--freeitemcurr];
+    } else {
+        /* If malloc fails, let the logic fall through without spamming
+         * STDERR on the server. */
+        s = (item *)malloc( settings.item_buf_size );
+    }
+
+    return s;
+}
+
+/*
+ * Adds a item to the freelist. Should call 
+ * item_add_to_freelist for thread safty.
+ */
+int do_item_add_to_freelist(item *it) {
+    if (freeitemcurr < freeitemtotal) {
+        freeitem[freeitemcurr++] = it;
+        return 0;
+    } else {
+        if (freeitemtotal >= MAX_ITEM_FREELIST_LENGTH){
+            return 1;
+        }
+        /* try to enlarge free item buffer array */
+        item **new_freeitem = (item **)realloc(freeitem, sizeof(item *) * freeitemtotal * 2);
+        if (new_freeitem) {
+            freeitemtotal *= 2;
+            freeitem = new_freeitem;
+            freeitem[freeitemcurr++] = it;
+            return 0;
+        }
+    }
+    return 1;
 }
 
 /**
@@ -67,60 +120,16 @@ static size_t item_make_header(const uint8_t nkey, const int flags, const int nb
 }
 
 /*
- * Returns a item buffer from the freelist, if any. 
- * */
-static item *item_from_freelist(size_t ntotal) {
-    item *s;
-    if (ntotal > settings.item_buf_size){
-        return NULL;
-    }
-
-    if (freeitemcurr > 0) {
-        s = freeitem[--freeitemcurr];
-    } else {
-        /* If malloc fails, let the logic fall through without spamming
-         * STDERR on the server. */
-        s = (item *)malloc( settings.item_buf_size );
-    }
-
-    return s;
-}
-
-/*
- * Adds a item to the freelist. 
+ * alloc a item buffer, and init it.
  */
-static int item_add_to_freelist(item *it) {
-    if (freeitemcurr < freeitemtotal) {
-        freeitem[freeitemcurr++] = it;
-        return 0;
-    } else {
-        if (freeitemtotal >= MAX_ITEM_FREELIST_LENGTH){
-            return 1;
-        }
-        /* try to enlarge free item buffer array */
-        item **new_freeitem = (item **)realloc(freeitem, sizeof(item *) * freeitemtotal * 2);
-        if (new_freeitem) {
-            freeitemtotal *= 2;
-            freeitem = new_freeitem;
-            freeitem[freeitemcurr++] = it;
-            return 0;
-        }
-    }
-    return 1;
-}
-
-/*
- * alloc a item buffer from the freelist. Should call this using
- * item_alloc() for thread safety.
- */
-item *do_item_alloc(char *key, const size_t nkey, const int flags, const int nbytes) {
+item *item_alloc1(char *key, const size_t nkey, const int flags, const int nbytes) {
     uint8_t nsuffix;
     item *it;
     char suffix[40];
     size_t ntotal = item_make_header(nkey + 1, flags, nbytes, suffix, &nsuffix);
 
     it = item_from_freelist(ntotal);
-    if (it == NULL){
+    if (it == NULL && (it = (item *)malloc(ntotal)) == NULL){
         return NULL;
     }
 
@@ -133,16 +142,39 @@ item *do_item_alloc(char *key, const size_t nkey, const int flags, const int nby
 }
 
 /*
- * free a item. Should call this using
- * item_free() for thread safety.
+ * alloc a item buffer only.
+ */
+item *item_alloc2(size_t ntotal) {
+    item *it;
+    it = item_from_freelist(ntotal);
+    if (it == NULL && (it = (item *)malloc(ntotal)) == NULL){
+        return NULL;
+    }
+    return it;
+}
+
+/*
+ * free a item buffer. 
  */
 
-int do_item_free(item *it) {
-   if (NULL == it)
-       return 0;
+int item_free(item *it) {
+    size_t ntotal;
+    if (NULL == it)
+        return 0;
 
-   if (0 != item_add_to_freelist(it)) {
-       free(it);   
-   }
-   return 0;
+    ntotal = ITEM_ntotal(it);
+    if (ntotal > settings.item_buf_size){
+        if (settings.verbose > 1) {
+            fprintf(stderr, "nototal larger than freelist buf size, try to use free() instead.\n");
+        }
+        free(it);   
+    }else{
+        if (settings.verbose > 1) {
+            fprintf(stderr, "nototal smaller than freelist buf size, try to add to freelist.\n");
+        }
+        if (0 != item_add_to_freelist(it)) {
+            free(it);   
+        }
+    }
+    return 0;
 }

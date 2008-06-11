@@ -249,10 +249,10 @@ bool mt_conn_add_to_freelist(conn *c) {
  * Pulls a item buffer from the freelist, if one is available.
  */
 
-item *mt_item_alloc(char *key, size_t nkey, int flags, int nbytes) {
+item *mt_item_from_freelist(size_t ntotal) {
     item *it;
     pthread_mutex_lock(&ibuffer_lock);
-    it = do_item_alloc(key, nkey, flags, nbytes);
+    it = do_item_from_freelist(ntotal);
     pthread_mutex_unlock(&ibuffer_lock);
     return it;
 }
@@ -262,11 +262,11 @@ item *mt_item_alloc(char *key, size_t nkey, int flags, int nbytes) {
  *
  * Returns 0 on success, 1 if the buffer couldn't be added.
  */
-int mt_item_free(item *it){
+int mt_item_add_to_freelist(item *it){
     int result;
 
     pthread_mutex_lock(&ibuffer_lock);
-    result = do_item_free(it);
+    result = do_item_add_to_freelist(it);
     pthread_mutex_unlock(&ibuffer_lock);
 
     return result;
@@ -391,11 +391,11 @@ int mt_is_listen_thread() {
 /*
  * Does arithmetic on a numeric item value.
  */
-char *mt_add_delta(item *item, int incr, const int64_t delta, char *buf, char *key, size_t nkey) {
+char *mt_add_delta(int incr, const int64_t delta, char *buf, char *key, size_t nkey) {
     char *ret;
 
     pthread_mutex_lock(&bdb_lock);
-    ret = do_add_delta(item, incr, delta, buf, key, nkey);
+    ret = do_add_delta(incr, delta, buf, key, nkey);
     pthread_mutex_unlock(&bdb_lock);
     return ret;
 }

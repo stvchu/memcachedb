@@ -146,7 +146,7 @@ static void settings_init(void) {
     settings.port = 21201;
     settings.udpport = 0;
     settings.interf.s_addr = htonl(INADDR_ANY);
-    settings.item_buf_size = 1024; /* default is 1KB */
+    settings.item_buf_size = 512;     /* default is 512B */
     settings.maxconns = 1024;         /* to limit connections-related memory to about 5MB */
     settings.verbose = 0;
     settings.socketpath = NULL;       /* by default, not using a unix socket */
@@ -709,6 +709,9 @@ int do_store_item(item *it, int comm) {
     if ((ret = dbp->put(dbp, NULL, &dbkey, &dbdata, 0)) == 0) {
         return 1;
     } else {
+        if (settings.verbose > 1) {
+            fprintf(stderr, "dbp->put: %s\n", db_strerror(ret));
+        }
         return 0;
     }
 }
@@ -1013,11 +1016,12 @@ static void process_stat(conn *c, token_t *tokens, const size_t ntokens) {
 
 /* ntokens is overwritten here... shrug.. */
 static inline void process_get_command(conn *c, token_t *tokens, size_t ntokens) {
+    bool stop = false;
     char *key;
     size_t nkey;
     int i = 0;
     int ret;
-    item *it;
+    item *it = NULL;
     token_t *key_token = &tokens[KEY_TOKEN];
     int stats_get_cmds   = 0;
     int stats_get_hits   = 0;
@@ -1042,23 +1046,36 @@ static inline void process_get_command(conn *c, token_t *tokens, size_t ntokens)
             }
 
             stats_get_cmds++;
-            /* alloc a item buffer */
-            it = item_alloc(key, nkey, 0, 0);
-            if (it == 0) {
-                out_string(c, "SERVER_ERROR out of memory");
-                return;
-            }
-            /*get old item from bdb */
+
             BDB_CLEANUP_DBT();
             dbkey.data = key;
             dbkey.size = nkey;
-            dbdata.ulen = settings.item_buf_size;
-            dbdata.data = it;
+            dbdata.ulen = 0;
             dbdata.flags = DB_DBT_USERMEM;
-            ret = dbp->get(dbp, NULL, &dbkey, &dbdata, 0); 
-            if (ret != 0){
-                item_free(it);
-                it = 0;
+
+            /* try to get a item from bdb */
+            while (!stop) {
+                switch (ret = dbp->get(dbp, NULL, &dbkey, &dbdata, 0)) {
+                case DB_BUFFER_SMALL:    /* user mem small */
+                    it = item_alloc2(dbdata.size);
+                    if (it == 0) {
+                        out_string(c, "SERVER_ERROR out of memory");
+                        return;
+                    }
+                    dbdata.ulen = dbdata.size;
+                    dbdata.data = it;
+                    break;
+                case 0:                  /* Success. */
+                    stop = true;
+                    break;
+                default:
+                    item_free(it);
+                    it = 0;
+                    stop = true;
+                    if (settings.verbose > 1) {
+                        fprintf(stderr, "dbp->get: %s\n", db_strerror(ret));
+                    }
+                }
             }
 
             if (it) {
@@ -1067,7 +1084,11 @@ static inline void process_get_command(conn *c, token_t *tokens, size_t ntokens)
                     if (new_list) {
                         c->isize *= 2;
                         c->ilist = new_list;
-                    } else break;
+                    } else { 
+                        item_free(it);
+                        it = 0;
+                        break;
+                    }
                 }
 
                 /*
@@ -1082,9 +1103,10 @@ static inline void process_get_command(conn *c, token_t *tokens, size_t ntokens)
                    add_iov(c, ITEM_key(it), it->nkey) != 0 ||
                    add_iov(c, ITEM_suffix(it), it->nsuffix + it->nbytes) != 0)
                    {
+                       item_free(it);
+                           it = 0;
                        break;
                    }
-
 
                 if (settings.verbose > 1)
                     fprintf(stderr, ">%d sending key %s\n", c->sfd, ITEM_key(it));
@@ -1141,6 +1163,7 @@ static inline void process_get_command(conn *c, token_t *tokens, size_t ntokens)
 }
 
 static inline void process_pget_command(conn *c, token_t *tokens, size_t ntokens, int comm) {
+    bool stop = false;
     char *key;
     size_t nkey;
     int i = 0;
@@ -1151,8 +1174,18 @@ static inline void process_pget_command(conn *c, token_t *tokens, size_t ntokens
     token_t *key_token = &tokens[KEY_TOKEN];
     DBT dbkey, dbdata;
     DBC *cursorp;
+    u_int32_t cursor_flag = 0;
     char prefix[KEY_MAX_LENGTH + 1];
     assert(c != NULL);
+
+    /* hash and btree has different get flag */
+    if (bdb_settings.db_type == DB_HASH){
+        cursor_flag = DB_SET;
+    } else if (bdb_settings.db_type == DB_BTREE){
+        cursor_flag = DB_SET_RANGE;
+    } else {
+        /* do nothing */
+    }
 
     /* get prefix */
     key = key_token->value;
@@ -1182,12 +1215,6 @@ static inline void process_pget_command(conn *c, token_t *tokens, size_t ntokens
         /* nothing happened */
     }
 
-    /* alloc next item buffer */
-    it = item_alloc(key, nkey, 0, 0);
-    if (it == 0) {
-        out_string(c, "SERVER_ERROR out of memory");
-        return;
-    }
     /* get first item from bdb */
     BDB_CLEANUP_DBT();
     dbkey.data = prefix;
@@ -1196,21 +1223,37 @@ static inline void process_pget_command(conn *c, token_t *tokens, size_t ntokens
     dbkey.flags = DB_DBT_USERMEM | DB_DBT_PARTIAL;
     dbkey.doff = 0;
     dbkey.dlen = KEY_MAX_LENGTH;
-    dbdata.data = it;
-    dbdata.ulen = settings.item_buf_size;
+    dbdata.ulen = 0;
     dbdata.flags = DB_DBT_USERMEM;
-    if (bdb_settings.db_type == DB_HASH){
-        ret = cursorp->get(cursorp, &dbkey, &dbdata, DB_SET);
-    } else if (bdb_settings.db_type == DB_BTREE){
-        ret = cursorp->get(cursorp, &dbkey, &dbdata, DB_SET_RANGE);
-    } else {
-        /* do nothing */
-    }
-
-    if (ret || (0 != strncmp(key, prefix, nkey))){
-        /* never leak memory */
-        item_free(it);
-        it = 0;
+ 
+    while (!stop) {
+        switch (ret = cursorp->get(cursorp, &dbkey, &dbdata, cursor_flag)) {
+        case DB_BUFFER_SMALL:    /* user mem small */
+            it = item_alloc2(dbdata.size);
+            if (it == 0) {
+                out_string(c, "SERVER_ERROR out of memory");
+                return;
+            }
+            dbdata.ulen = dbdata.size;
+            dbdata.data = it;
+            stop = false;
+            break;
+        case 0:
+            if (0 != strncmp(key, prefix, nkey)){
+                /* never leak memory */
+                item_free(it);
+                it = 0;
+            }
+            stop = true;
+            break;
+        default:
+            item_free(it);
+            it = 0;
+            stop = true;
+            if (settings.verbose > 1) {
+                fprintf(stderr, "cursorp->get: %s\n", db_strerror(ret));
+            }
+        }
     }
 
     while (it) {
@@ -1219,7 +1262,11 @@ static inline void process_pget_command(conn *c, token_t *tokens, size_t ntokens
             if (new_list) {
                 c->isize *= 2;
                 c->ilist = new_list;
-            } else break;
+            } else {
+                item_free(it);
+                it = 0;
+                break;
+            }
         }
 
         /*
@@ -1234,6 +1281,8 @@ static inline void process_pget_command(conn *c, token_t *tokens, size_t ntokens
            add_iov(c, ITEM_key(it), it->nkey) != 0 ||
            add_iov(c, ITEM_suffix(it), it->nsuffix + it->nbytes) != 0)
            {
+               item_free(it);
+               it = 0;
                break;
            }
 
@@ -1249,13 +1298,7 @@ static inline void process_pget_command(conn *c, token_t *tokens, size_t ntokens
             break;
         }
 
-        /* alloc next item buffer */
-        it = item_alloc(key, nkey, 0, 0);
-        if (it == 0) {
-            out_string(c, "SERVER_ERROR out of memory");
-            return;
-        }
-        /*get next item from bdb */
+        /* get next item from bdb */
         BDB_CLEANUP_DBT();
         dbkey.data = prefix;
         dbkey.size = strlen(prefix);
@@ -1263,16 +1306,38 @@ static inline void process_pget_command(conn *c, token_t *tokens, size_t ntokens
         dbkey.flags = DB_DBT_USERMEM | DB_DBT_PARTIAL;
         dbkey.doff = 0;
         dbkey.dlen = KEY_MAX_LENGTH;
-        dbdata.data = it;
-        dbdata.ulen = settings.item_buf_size;
+        dbdata.ulen = 0;
         dbdata.flags = DB_DBT_USERMEM;
-        ret = cursorp->get(cursorp, &dbkey, &dbdata, DB_NEXT);
-
-        if (ret || (0 != strncmp(key, prefix, nkey))){
-            /* never leak memory */
-            item_free(it);
-            it = 0;
-            break;
+  
+        stop = false;
+        while (!stop) {
+            switch (ret = cursorp->get(cursorp, &dbkey, &dbdata, DB_NEXT)) {
+            case DB_BUFFER_SMALL:    /* user mem small */
+                it = item_alloc2(dbdata.size);
+                if (it == 0) {
+                    out_string(c, "SERVER_ERROR out of memory");
+                    return;
+                }
+                dbdata.ulen = dbdata.size;
+                dbdata.data = it;
+                stop = false;
+                break;
+            case 0:
+                if (0 != strncmp(key, prefix, nkey)){
+                    /* never leak memory */
+                    item_free(it);
+                    it = 0;
+                }
+                stop = true;
+                break;
+            default:
+                item_free(it);
+                it = 0;
+                stop = true;
+                if (settings.verbose > 1) {
+                    fprintf(stderr, "cursorp->get: %s\n", db_strerror(ret));
+                }
+            }
         }
     }
 
@@ -1307,7 +1372,7 @@ static void process_update_command(conn *c, token_t *tokens, const size_t ntoken
     int flags;
     time_t exptime;
     int vlen;
-    item *it;
+    item *it = NULL;
 
     assert(c != NULL);
 
@@ -1328,7 +1393,7 @@ static void process_update_command(conn *c, token_t *tokens, const size_t ntoken
         return;
     }
 
-    it = item_alloc(key, nkey, flags, vlen+2);
+    it = item_alloc1(key, nkey, flags, vlen+2);
 
     if (it == 0) {
         out_string(c, "SERVER_ERROR out of memory");
@@ -1347,12 +1412,9 @@ static void process_update_command(conn *c, token_t *tokens, const size_t ntoken
 
 static void process_arithmetic_command(conn *c, token_t *tokens, const size_t ntokens, const bool incr) {
     char temp[sizeof("18446744073709551615")];
-    DBT dbkey, dbdata;
-    item *it;
     int64_t delta;
     char *key;
     size_t nkey;
-    int ret;
 
     assert(c != NULL);
 
@@ -1370,18 +1432,8 @@ static void process_arithmetic_command(conn *c, token_t *tokens, const size_t nt
         out_string(c, "CLIENT_ERROR bad command line format");
         return;
     }
-    /* new item buffer*/
-    it = item_alloc(key, nkey, 0, 2);
-    if (it == 0) {
-        out_string(c, "SERVER_ERROR out of memory");
-        return;
-    }
 
-    out_string(c, add_delta(it, incr, delta, temp, key, nkey));
-
-    item_free(it);
-    it = 0;
-
+    out_string(c, add_delta(incr, delta, temp, key, nkey));
 }
 
 /*
@@ -1394,32 +1446,64 @@ static void process_arithmetic_command(conn *c, token_t *tokens, const size_t nt
  *
  * returns a response string to send back to the client.
  */
-char *do_add_delta(item *it, const bool incr, const int64_t delta, char *buf, char *key, size_t nkey) {
+char *do_add_delta(const bool incr, const int64_t delta, char *buf, char *key, size_t nkey) {
+    bool stop = false;
+
     char *ptr;
     int64_t value;
-    int res;
-    int ret;
-    int flaglen,vlenlen;
+    int new_vlen;
+
+    int flaglen,new_vlenlen;
+    uint8_t new_nsuffix;
+    char new_vlenstr[16];
+    char new_suffix[SUFFIX_SIZE];
+
+    int new_ntotal;
+
     DBT dbkey, dbdata;
-
+    item *it = NULL;
+    item *new_it = NULL;
+	
+    int ret;
     char *p;
-    char temp[16];
 
-    /*get old item from bdb */
     BDB_CLEANUP_DBT();
     dbkey.data = key;
     dbkey.size = nkey;
-    dbdata.ulen = settings.item_buf_size;
-    dbdata.data = it;
+    dbdata.ulen = 0;
     dbdata.flags = DB_DBT_USERMEM;
-    ret = dbp->get(dbp, NULL, &dbkey, &dbdata, 0); 
-    if (ret != 0){
-        return "NOT_FOUND";
+
+    /* try to get the old item from bdb */
+    while (!stop) {
+        switch (ret = dbp->get(dbp, NULL, &dbkey, &dbdata, 0)) {
+        case DB_BUFFER_SMALL:    /* user mem small */
+            it = item_alloc2(dbdata.size);
+            if (it == NULL) {
+                return "SERVER_ERROR out of memory";
+            }
+            dbdata.ulen = dbdata.size;
+            dbdata.data = it;
+            break;
+        case 0:
+            stop = true;
+            break;
+        case DB_NOTFOUND:
+            item_free(it);
+            return "NOT_FOUND";
+        default:
+            item_free(it);
+            if (settings.verbose > 1) {
+                fprintf(stderr, "dbp->get: %s\n", db_strerror(ret));
+            }
+            return "SERVER_ERROR dbp->get error";
+        }
     }
 
     ptr = ITEM_data(it);
-    while ((*ptr != '\0') && (*ptr < '0' && *ptr > '9')) ptr++;    // BUG: can't be true
 
+    /* while ((*ptr != '\0') && (*ptr < '0' && *ptr > '9')) ptr++; */   // BUG: can't be true
+
+    /* non-digit will cause strtoull stop :) This is a triky. */
     value = strtoull(ptr, NULL, 10);
 
     if(errno == ERANGE) {
@@ -1432,37 +1516,54 @@ char *do_add_delta(item *it, const bool incr, const int64_t delta, char *buf, ch
         if (delta >= value) value = 0;
         else value -= delta;
     }
-    sprintf(buf, "%llu", value);
-    res = strlen(buf);
+    new_vlen = sprintf(buf, "%llu", value);
 
-    /* here's trick to modify length string */
+    /* to construct new suffix string */
     p = ITEM_suffix(it) + 1;
-    p = memchr(p, ' ', it->nsuffix);
+    p = memchr(p, ' ', it->nsuffix - 1);
     if (p == NULL){
         return "SERVER_ERROR not vaild suffix string";
     }
     p++;
-    flaglen = p - ITEM_suffix(it);
-    vlenlen = sprintf(temp, "%d", res);
-    memcpy(p, temp, vlenlen);
-    memcpy(p + vlenlen, "\r\n", 3);
-    it->nsuffix = flaglen + vlenlen + 2;
+    flaglen = p - ITEM_suffix(it); /* include two spaces */
+    new_vlenlen = sprintf(new_vlenstr, "%d", new_vlen);
+    memcpy(new_suffix, ITEM_suffix(it), flaglen);
+    memcpy(new_suffix + flaglen, new_vlenstr, new_vlenlen);
+    memcpy(new_suffix + flaglen + new_vlenlen, "\r\n", 2);
 
-    /* push the new value in item buffer */
-    memcpy(ITEM_data(it), buf, res);
-    memcpy(ITEM_data(it) + res, "\r\n", 3);
-    it->nbytes = res + 2;
+	/* free the old item buffer */
+    item_free(it);
 
-    /* now we put the item in bdb anyway */
+    /* to construct new item */
+    new_nsuffix = flaglen + new_vlenlen + 2;
+    new_ntotal = sizeof(struct _stritem) + nkey + new_nsuffix + new_vlen + 2;
+    new_it = item_alloc2(new_ntotal);
+    if (new_it == NULL) {
+        return "SERVER_ERROR out of memory";
+    }
+    new_it->nkey = nkey;
+    new_it->nsuffix = new_nsuffix;
+    new_it->nbytes = new_vlen + 2;
+    memcpy(ITEM_key(new_it), key, nkey);
+    memcpy(ITEM_suffix(new_it), new_suffix, new_nsuffix);
+    memcpy(ITEM_data(new_it), buf, new_vlen);
+    memcpy(ITEM_data(new_it) + new_vlen, "\r\n", 2);
+
+    /* now we put the new item in bdb anyway */
     BDB_CLEANUP_DBT();
-    dbkey.data = ITEM_key(it);
-    dbkey.size = it->nkey;
-    dbdata.data = it;
-    dbdata.size = ITEM_ntotal(it);
+    dbkey.data = ITEM_key(new_it);
+    dbkey.size = new_it->nkey;
+    dbdata.data = new_it;
+    dbdata.size = ITEM_ntotal(new_it);
     ret = dbp->put(dbp, NULL, &dbkey, &dbdata, 0);
     if (ret != 0) {
-        return "SERVER_ERROR dbp->put";
+        if (settings.verbose > 1) {
+            fprintf(stderr, "dbp->put: %s\n", db_strerror(ret));
+        }
+        item_free(new_it);
+        return "SERVER_ERROR dbp->put fail";
     }
+    item_free(new_it);
 
     return buf;
 }
@@ -2443,7 +2544,7 @@ static void usage(void) {
            "-r            maximize core file limit\n"
            "-u <username> assume identity of <username> (only when run as root)\n"
            "-c <num>      max simultaneous connections, default is 1024\n"
-           "-b <num>      max item buffer size in bytes, default is 1KB\n"
+           "-b <num>      size smaller than <num> will use fast memory alloc, default is 512B\n"
            "-v            verbose (print errors/warnings while in event loop)\n"
            "-vv           very verbose (also print client commands/reponses)\n"
            "-h            print this help and exit\n"
@@ -2656,7 +2757,7 @@ int main (int argc, char **argv) {
     settings_init();
     bdb_settings_init();
 
-	/* get Berkeley DB version*/
+    /* get Berkeley DB version*/
     db_version(&(bdb_version.majver), &(bdb_version.minver), &(bdb_version.patch));
 
     /* set stderr non-buffering (for running under, say, daemontools) */
