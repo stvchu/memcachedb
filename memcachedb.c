@@ -1047,16 +1047,27 @@ static inline void process_get_command(conn *c, token_t *tokens, size_t ntokens)
 
             stats_get_cmds++;
 
+            /* first, alloc a fixed size */
+            it = item_alloc2(settings.item_buf_size);
+            if (it == 0) {
+                out_string(c, "SERVER_ERROR out of memory");
+                return;
+            }
+
             BDB_CLEANUP_DBT();
             dbkey.data = key;
             dbkey.size = nkey;
-            dbdata.ulen = 0;
+            dbdata.ulen = settings.item_buf_size;
+            dbdata.data = it;
             dbdata.flags = DB_DBT_USERMEM;
 
             /* try to get a item from bdb */
             while (!stop) {
                 switch (ret = dbp->get(dbp, NULL, &dbkey, &dbdata, 0)) {
                 case DB_BUFFER_SMALL:    /* user mem small */
+                    /* free the original smaller buffer */
+                    item_free(it);
+                    /* alloc the correct size */
                     it = item_alloc2(dbdata.size);
                     if (it == 0) {
                         out_string(c, "SERVER_ERROR out of memory");
@@ -1069,6 +1080,8 @@ static inline void process_get_command(conn *c, token_t *tokens, size_t ntokens)
                     stop = true;
                     break;
                 default:
+                    /* TODO: may cause bug here, if return DB_BUFFER_SMALL then retun non-zero again
+                     * here 'it' may not a full one. a item buffer larger than item_buf_size may be added to freelist */
                     item_free(it);
                     it = 0;
                     stop = true;
@@ -1170,7 +1183,7 @@ static inline void process_pget_command(conn *c, token_t *tokens, size_t ntokens
     int ret = 0;
     int limit = 0; /* we get all matched item by default */
     int n = 0; /* count for current sent items */
-    item *it;
+    item *it = NULL;
     token_t *key_token = &tokens[KEY_TOKEN];
     DBT dbkey, dbdata;
     DBC *cursorp;
@@ -1215,6 +1228,13 @@ static inline void process_pget_command(conn *c, token_t *tokens, size_t ntokens
         /* nothing happened */
     }
 
+    /* first, alloc a fixed size */
+    it = item_alloc2(settings.item_buf_size);
+    if (it == 0) {
+        out_string(c, "SERVER_ERROR out of memory");
+        return;
+    }
+
     /* get first item from bdb */
     BDB_CLEANUP_DBT();
     dbkey.data = prefix;
@@ -1223,12 +1243,16 @@ static inline void process_pget_command(conn *c, token_t *tokens, size_t ntokens
     dbkey.flags = DB_DBT_USERMEM | DB_DBT_PARTIAL;
     dbkey.doff = 0;
     dbkey.dlen = KEY_MAX_LENGTH;
-    dbdata.ulen = 0;
+    dbdata.ulen = settings.item_buf_size;
+    dbdata.data = it;
     dbdata.flags = DB_DBT_USERMEM;
  
     while (!stop) {
         switch (ret = cursorp->get(cursorp, &dbkey, &dbdata, cursor_flag)) {
         case DB_BUFFER_SMALL:    /* user mem small */
+            /* free the original smaller buffer */
+            item_free(it);
+            /* alloc the correct size */
             it = item_alloc2(dbdata.size);
             if (it == 0) {
                 out_string(c, "SERVER_ERROR out of memory");
@@ -1247,6 +1271,8 @@ static inline void process_pget_command(conn *c, token_t *tokens, size_t ntokens
             stop = true;
             break;
         default:
+            /* TODO: may cause bug here, if return DB_BUFFER_SMALL then retun non-zero again
+             * here 'it' may not a full it. */
             item_free(it);
             it = 0;
             stop = true;
@@ -1298,6 +1324,13 @@ static inline void process_pget_command(conn *c, token_t *tokens, size_t ntokens
             break;
         }
 
+        /* first, alloc a fixed size */
+        it = item_alloc2(settings.item_buf_size);
+        if (it == 0) {
+            out_string(c, "SERVER_ERROR out of memory");
+            return;
+        }
+
         /* get next item from bdb */
         BDB_CLEANUP_DBT();
         dbkey.data = prefix;
@@ -1306,13 +1339,17 @@ static inline void process_pget_command(conn *c, token_t *tokens, size_t ntokens
         dbkey.flags = DB_DBT_USERMEM | DB_DBT_PARTIAL;
         dbkey.doff = 0;
         dbkey.dlen = KEY_MAX_LENGTH;
-        dbdata.ulen = 0;
+        dbdata.ulen = settings.item_buf_size;
+        dbdata.data = it;
         dbdata.flags = DB_DBT_USERMEM;
   
         stop = false;
         while (!stop) {
             switch (ret = cursorp->get(cursorp, &dbkey, &dbdata, DB_NEXT)) {
             case DB_BUFFER_SMALL:    /* user mem small */
+                /* free the original smaller buffer */
+                item_free(it);
+                /* alloc the correct size */
                 it = item_alloc2(dbdata.size);
                 if (it == 0) {
                     out_string(c, "SERVER_ERROR out of memory");
@@ -1463,20 +1500,30 @@ char *do_add_delta(const bool incr, const int64_t delta, char *buf, char *key, s
     DBT dbkey, dbdata;
     item *it = NULL;
     item *new_it = NULL;
-	
+    
     int ret;
     char *p;
+
+    /* first, alloc a fixed size */
+    it = item_alloc2(settings.item_buf_size);
+    if (it == 0) {
+        return "SERVER_ERROR out of memory";
+    }
 
     BDB_CLEANUP_DBT();
     dbkey.data = key;
     dbkey.size = nkey;
-    dbdata.ulen = 0;
+    dbdata.ulen = settings.item_buf_size;
     dbdata.flags = DB_DBT_USERMEM;
+    dbdata.data = it;
 
     /* try to get the old item from bdb */
     while (!stop) {
         switch (ret = dbp->get(dbp, NULL, &dbkey, &dbdata, 0)) {
         case DB_BUFFER_SMALL:    /* user mem small */
+            /* free the original smaller buffer */
+            item_free(it);
+            /* alloc the correct size */
             it = item_alloc2(dbdata.size);
             if (it == NULL) {
                 return "SERVER_ERROR out of memory";
@@ -1531,7 +1578,7 @@ char *do_add_delta(const bool incr, const int64_t delta, char *buf, char *key, s
     memcpy(new_suffix + flaglen, new_vlenstr, new_vlenlen);
     memcpy(new_suffix + flaglen + new_vlenlen, "\r\n", 2);
 
-	/* free the old item buffer */
+    /* free the old item buffer */
     item_free(it);
 
     /* to construct new item */

@@ -53,17 +53,8 @@ void item_init(void) {
  * Returns a item buffer from the freelist, if any. Sholud call
  * item_from_freelist for thread safty.
  * */
-item *do_item_from_freelist(size_t ntotal) {
+item *do_item_from_freelist(void) {
     item *s;
-    if (ntotal > settings.item_buf_size){
-        if (settings.verbose > 1) {
-            fprintf(stderr, "nototal larger than freelist buf size, try to use malloc instead.\n");
-        }
-        return NULL;
-    }
-    if (settings.verbose > 1) {
-        fprintf(stderr, "nototal smaller than freelist buf size, try to use freelist.\n");
-    }
 
     if (freeitemcurr > 0) {
         s = freeitem[--freeitemcurr];
@@ -71,6 +62,9 @@ item *do_item_from_freelist(size_t ntotal) {
         /* If malloc fails, let the logic fall through without spamming
          * STDERR on the server. */
         s = (item *)malloc( settings.item_buf_size );
+        if (s != NULL){
+            memset(s, 0, settings.item_buf_size);
+        }
     }
 
     return s;
@@ -128,9 +122,23 @@ item *item_alloc1(char *key, const size_t nkey, const int flags, const int nbyte
     char suffix[40];
     size_t ntotal = item_make_header(nkey + 1, flags, nbytes, suffix, &nsuffix);
 
-    it = item_from_freelist(ntotal);
-    if (it == NULL && (it = (item *)malloc(ntotal)) == NULL){
-        return NULL;
+    if (ntotal > settings.item_buf_size){
+        it = (item *)malloc(ntotal);
+        if (it == NULL){
+            return NULL;
+        }
+        memset(it, 0, ntotal);
+        if (settings.verbose > 1) {
+            fprintf(stderr, "alloc a item buffer from malloc.\n");
+        }
+    }else{
+        it = item_from_freelist();
+        if (it == NULL){
+            return NULL;
+        }
+        if (settings.verbose > 1) {
+            fprintf(stderr, "alloc a item buffer from freelist.\n");
+        }
     }
 
     it->nkey = nkey;
@@ -146,34 +154,54 @@ item *item_alloc1(char *key, const size_t nkey, const int flags, const int nbyte
  */
 item *item_alloc2(size_t ntotal) {
     item *it;
-    it = item_from_freelist(ntotal);
-    if (it == NULL && (it = (item *)malloc(ntotal)) == NULL){
-        return NULL;
+    if (ntotal > settings.item_buf_size){
+        it = (item *)malloc(ntotal);
+        if (it == NULL){
+            return NULL;
+        }
+        memset(it, 0, ntotal);
+        if (settings.verbose > 1) {
+            fprintf(stderr, "alloc a item buffer from malloc.\n");
+        }
+    }else{
+        it = item_from_freelist();
+        if (it == NULL){
+            return NULL;
+        }
+        if (settings.verbose > 1) {
+            fprintf(stderr, "alloc a item buffer from freelist.\n");
+        }
     }
+
     return it;
 }
 
 /*
- * free a item buffer. 
+ * free a item buffer. here 'it' must be a full item.
  */
 
 int item_free(item *it) {
-    size_t ntotal;
+    size_t ntotal = 0;
     if (NULL == it)
         return 0;
 
+    /* ntotal may be wrong, if 'it' is not a full item. */
     ntotal = ITEM_ntotal(it);
     if (ntotal > settings.item_buf_size){
         if (settings.verbose > 1) {
-            fprintf(stderr, "nototal larger than freelist buf size, try to use free() instead.\n");
+            fprintf(stderr, "ntotal: %d, use free() directly.\n", ntotal);
         }
         free(it);   
     }else{
-        if (settings.verbose > 1) {
-            fprintf(stderr, "nototal smaller than freelist buf size, try to add to freelist.\n");
-        }
         if (0 != item_add_to_freelist(it)) {
+            if (settings.verbose > 1) {
+                fprintf(stderr, "ntotal: %d, add a item buffer to freelist fail, use free() directly.\n", ntotal);
+            }
             free(it);   
+        }else{
+            if (settings.verbose > 1) {
+                fprintf(stderr, "ntotal: %d, add a item buffer to freelist.\n", ntotal);
+            }
         }
     }
     return 0;

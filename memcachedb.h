@@ -95,9 +95,9 @@ struct settings {
 };
 
 struct bdb_version {
-	int majver;
-	int minver;
-	int patch;
+    int majver;
+    int minver;
+    int patch;
 };
 
 struct bdb_settings {
@@ -244,7 +244,7 @@ void bdb_chkpoint(void);
 
 /* ibuffer management */
 void item_init(void);
-item *do_item_from_freelist(size_t ntotal);
+item *do_item_from_freelist(void);
 int do_item_add_to_freelist(item *it);
 item *item_alloc1(char *key, const size_t nkey, const int flags, const int nbytes);
 item *item_alloc2(size_t ntotal);
@@ -284,7 +284,7 @@ char *mt_add_delta(const int incr, const int64_t delta, char *buf, char *key, si
 conn *mt_conn_from_freelist(void);
 bool  mt_conn_add_to_freelist(conn *c);
 int   mt_is_listen_thread(void);
-item *mt_item_from_freelist(size_t ntotal);
+item *mt_item_from_freelist(void);
 int mt_item_add_to_freelist(item *it);
 void  mt_stats_lock(void);
 void  mt_stats_unlock(void);
@@ -294,7 +294,7 @@ int   mt_store_item(item *item, int comm);
 # define conn_from_freelist()        mt_conn_from_freelist()
 # define conn_add_to_freelist(x)     mt_conn_add_to_freelist(x)
 # define is_listen_thread()          mt_is_listen_thread()
-# define item_from_freelist(x)       mt_item_from_freelist(x)
+# define item_from_freelist()        mt_item_from_freelist()
 # define item_add_to_freelist(x)     mt_item_add_to_freelist(x)
 # define store_item(x,y)             mt_store_item(x,y)
 
@@ -309,7 +309,7 @@ int   mt_store_item(item *item, int comm);
 # define dispatch_conn_new(x,y,z,a,b) conn_new(x,y,z,a,b,main_base)
 # define dispatch_event_add(t,c)      event_add(&(c)->event, 0)
 # define is_listen_thread()           1
-# define item_from_freelist(x)        do_item_from_freelist(x)
+# define item_from_freelist()         do_item_from_freelist()
 # define item_add_to_freelist(x)      do_item_add_to_freelist(x)
 # define store_item(x,y)              do_store_item(x,y)
 # define thread_init(x,y)             0

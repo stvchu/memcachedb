@@ -249,10 +249,10 @@ bool mt_conn_add_to_freelist(conn *c) {
  * Pulls a item buffer from the freelist, if one is available.
  */
 
-item *mt_item_from_freelist(size_t ntotal) {
+item *mt_item_from_freelist(void) {
     item *it;
     pthread_mutex_lock(&ibuffer_lock);
-    it = do_item_from_freelist(ntotal);
+    it = do_item_from_freelist();
     pthread_mutex_unlock(&ibuffer_lock);
     return it;
 }
