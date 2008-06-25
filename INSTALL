@@ -2,14 +2,14 @@ Dependencies
 ============
 Before deploying Memcachedb, make sure that following packages installed:
 
-Berkeley DB 4.6 or later
+Berkeley DB 4.7 or later
 -------------------------
 http://www.oracle.com/database/berkeley-db/db/index.html
 
 How to install BerkekeyDB:
 
-$tar xvzf db-4.6.21.tar.gz
-$cd db-4.6.21/
+$tar xvzf db-4.7.25.tar.gz
+$cd db-4.7.25/
 $cd build_unix/
 $../dist/configure
 $make
@@ -31,7 +31,7 @@ $sudo make install
 Load .so file by add two line in /etc/ld.so.conf:
 
   /usr/local/lib
-  /usr/local/BerkeleyDB.4.6/lib
+  /usr/local/BerkeleyDB.4.7/lib
 
 Then, run 'ldconfig'.
 
