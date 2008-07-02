@@ -1,2 +1,5 @@
 TODO List:
 * RoundRobin does not solve blocked well
+* port it to Mac OS
+* more reliable replication
+* more friendly item buffer management

@@ -1,3 +1,6 @@
+2008-06-26 Steve Chu <stvchu@gmail.com>
+   * unix socket connectivity now has be well tested.
+
 2008-06-13 Steve Chu <stvchu@gmail.com>
    * some code refactoring to improve a bit performance
 

@@ -944,7 +944,31 @@ static void process_stat(conn *c, token_t *tokens, const size_t ntokens) {
             if (env->rep_stat(env, &statp, 0) == 0){
                 pos += sprintf(pos, "STAT rep_next_lsn %lu/%lu\r\n", (u_long)statp->st_next_lsn.file, (u_long)statp->st_next_lsn.offset);
             }
+            if (statp != NULL)
+                free(statp);
         }
+        pos += sprintf(pos, "END");
+        out_string(c, temp);
+        return;
+    }
+
+    if (strcmp(subcommand, "repgrp") == 0) {
+        char temp[1024];
+        char *pos = temp;
+        int ret;
+        DB_REPMGR_SITE *list = NULL;
+        if (bdb_settings.is_replicated == 1){
+            /* here we get who is master */
+            DB_REPMGR_SITE *list = NULL;
+            u_int count, i;
+            if ((0 == env->repmgr_site_list(env, &count, &list))) { 
+                for (i = 0; i < count; ++i) {
+                        pos += sprintf(pos, "STAT %d/%s:%d/%d\r\n", list[i].eid, list[i].host, list[i].port, list[i].status);
+                }
+            }
+            if (list != NULL)
+                free(list);
+    	}
         pos += sprintf(pos, "END");
         out_string(c, temp);
         return;
