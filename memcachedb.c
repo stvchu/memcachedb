@@ -1828,11 +1828,14 @@ static void process_rep_command(conn *c, token_t *tokens, const size_t ntokens) 
 }
 
 static void process_bdb_command(conn *c, token_t *tokens, const size_t ntokens) {
-
+	int ret;
     assert(c != NULL);
 
     if (strcmp(tokens[COMMAND_TOKEN].value, "db_archive") == 0){
-        if(0 != env->log_archive(env, NULL, DB_ARCH_REMOVE)){
+        if(0 != (ret = env->log_archive(env, NULL, DB_ARCH_REMOVE))){
+            if (settings.verbose > 1) {
+                fprintf(stderr, "env->log_archive: %s\n", db_strerror(ret));
+			}
             out_string(c, "ERROR");
         }else{
             out_string(c, "OK");
@@ -1840,13 +1843,27 @@ static void process_bdb_command(conn *c, token_t *tokens, const size_t ntokens) 
         return;
     
     }else if (strcmp(tokens[COMMAND_TOKEN].value, "db_checkpoint") == 0){
-        if(0 != env->txn_checkpoint(env, 0, 0, 0)){
+        if(0 != (ret = env->txn_checkpoint(env, 0, 0, 0))){
+            if (settings.verbose > 1) {
+                fprintf(stderr, "env->txn_checkpoint: %s\n", db_strerror(ret));
+			}
             out_string(c, "ERROR");
         }else{
             out_string(c, "OK");
         }
         return;
     
+    }else if (strcmp(tokens[COMMAND_TOKEN].value, "db_compact") == 0){
+		DB_COMPACT c_data;
+        if(0 != (ret = dbp->compact(dbp, NULL, NULL, NULL, &c_data, DB_FREE_SPACE, NULL))){
+            if (settings.verbose > 1) {
+                fprintf(stderr, "dbp->compact: %s\n", db_strerror(ret));
+			}
+            out_string(c, "ERROR");
+        }else{
+            out_string(c, "OK");
+        }
+        return;
     }else {
         out_string(c, "ERROR");
     }
@@ -1942,7 +1959,8 @@ static void process_command(conn *c, char *command) {
 
     } else if (ntokens == 2 && 
               ((strcmp(tokens[COMMAND_TOKEN].value, "db_archive") == 0 ) ||
-               (strcmp(tokens[COMMAND_TOKEN].value, "db_checkpoint") == 0 ))) {
+               (strcmp(tokens[COMMAND_TOKEN].value, "db_checkpoint") == 0 ) ||
+               (strcmp(tokens[COMMAND_TOKEN].value, "db_compact") == 0 ))) {
 
         process_bdb_command(c, tokens, ntokens);
 

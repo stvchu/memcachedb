@@ -1,5 +1,6 @@
 2008-07-04 Steve Chu <stvchu@gmail.com>
    * work well with Mac OS X(tested on Lepard 10.5.4)
+   * new 'db_compact' private command to compact a btree database
 
 2008-07-03 Version 1.1.0-beta released
 
