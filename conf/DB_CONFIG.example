@@ -1,0 +1,50 @@
+# This is example config file for tuning BerkeleyDB(The MemcacheDB backend),
+# put this file in your database home environment directory
+
+# initial file created by Steve Chu (stvchu@gmail.com)
+
+# ================ Environment =====================
+#set_data_dir ./testenv_db
+#set_lg_dir ./testenv_log
+#set_flags DB_TXN_NOSYNC
+#set_verbose DB_VERB_FILEOPS_ALL
+#set_verbose DB_VERB_DEADLOCK
+#set_verbose DB_VERB_RECOVERY
+#set_verbose DB_VERB_REPLICATION
+
+# ================ Logging Subsystem =====================
+#set_lg_max 10485760
+#set_lg_bsize 65536  
+
+# ================ Memory Pool =====================
+#set_cachesize 0 67108864 0 
+
+# ================ Locking Subsystem =====================
+#set_lk_detect DB_LOCK_OLDEST
+#set_lk_max_lockers 300000
+#set_lk_max_locks   300000
+#set_lk_max_objects 300000
+#set_lk_partitions 1
+
+# ================ Replication Subsystem =====================
+#rep_set_nsites 2
+#rep_set_priority 100
+#rep_set_request 40000 1280000
+#repmgr_set_ack_policy DB_REPMGR_ACKS_ALL
+
+#rep_set_config DB_REP_CONF_BULK
+#rep_set_config DB_REP_CONF_DELAYCLIENT
+#rep_set_config DB_REP_CONF_LEASE
+#rep_set_config DB_REP_CONF_NOAUTOINIT
+#rep_set_config DB_REP_CONF_NOWAIT
+#rep_set_config DB_REPMGR_CONF_2SITE_STRICT
+
+#rep_set_timeout DB_REP_ACK_TIMEOUT 15000000
+#rep_set_timeout DB_REP_CHECKPOINT_DELAY 0
+#rep_set_timeout DB_REP_CONNECTION_RETRY 15000000
+#rep_set_timeout DB_REP_ELECTION_TIMEOUT 2000000
+#rep_set_timeout DB_REP_ELECTION_RETRY 10000000
+#rep_set_timeout DB_REP_FULL_ELECTION_TIMEOUT 0
+#rep_set_timeout DB_REP_HEARTBEAT_MONITOR 0
+#rep_set_timeout DB_REP_HEARTBEAT_SEND 0
+#rep_set_timeout DB_REP_LEASE_TIMEOUT 0
