@@ -2646,7 +2646,7 @@ static void usage(void) {
     printf("--------------------BerkeleyDB Options-------------------------------\n");
     printf("-m <num>      in-memmory cache size of BerkeleyDB in megabytes, default is 64MB\n");
     printf("-A <num>      underlying page size in bytes, default is 4096, (512B ~ 64KB, power-of-two)\n");
-    printf("-f <file>     filename of database, default is 'default.db'\n");
+    printf("-f <file>     filename of database, default is 'data.db'\n");
     printf("-H <dir>      env home of database, default is '/data1/memcachedb'\n");
     printf("-T <db_type>  type of database, 'btree' or 'hash'. default is 'btree'\n");
     printf("-L <num>      log buffer size in kbytes, default is 32KB\n");

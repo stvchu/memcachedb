@@ -45,7 +45,7 @@
 #define MAX_REP_REQUEST_MIN 10000ul
 
 /* Default path for a database, and its env home */
-#define DBFILE "default.db"
+#define DBFILE "data.db"
 #define DBHOME "/data1/memcachedb"
 
 #define BDB_EID_SELF -3
