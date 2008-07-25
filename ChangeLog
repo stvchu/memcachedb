@@ -1,3 +1,16 @@
+2008-07-25 Steve Chu <stvchu@gmail.com>
+   * Warning: 'pkget' and 'pvget' private command now has been discarded. 
+   Memcachedb will be a more memcache protocol compatible daemon(append and
+   preppend daemon will be implenmented later), and will not add relatinal 
+   data model any more, the structural data storage will be issued by another
+   project (now internal only).
+
+2008-07-25 Steve Chu <stvchu@gmail.com>
+   * Bugfix: "multiple get" did not return the right value
+
+2008-07-23 Steve Chu <stvchu@gmail.com>
+   * add more other replication configure parameters
+
 2008-07-14 Steve Chu <stvchu@gmail.com>
    * rename "default.db" to "data.db" for less ambiguity
 

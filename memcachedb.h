@@ -105,28 +105,51 @@ struct bdb_settings {
     char *env_home;    /* db env home dir path */
     u_int32_t cache_size; /* cache size */
     u_int32_t txn_lg_bsize; /* transaction log buffer size */
+    u_int32_t page_size;    /* underlying database pagesize*/
+    DBTYPE db_type;
     int txn_nosync;    /* DB_TXN_NOSYNC flag, if 1 will lose transaction's durability for performance */
     int dldetect_val; /* do deadlock detect every *db_lock_detect_val* millisecond, 0 for disable */
     int chkpoint_val;  /* do checkpoint every *db_chkpoint_val* second, 0 for disable */
     u_int32_t db_flags; /* database open flags */
     u_int32_t env_flags; /* env open flags */
+
     int is_replicated; /* replication is ON?? */
+
     char *rep_localhost; /* local host in replication */
     int rep_localport;  /* local port in replication */
     char *rep_remotehost; /* remote host in replication */
     int rep_remoteport;  /* remote port in replication */
+
     int rep_is_master; /* 1 on YES, 0 on NO, -1 on UNKNOWN, for two sites replication */
     int rep_master_eid; /* replication master's eid */
+
     u_int32_t rep_start_policy;
-    u_int32_t rep_priority;
-    u_int32_t rep_ack_timeout;
+    u_int32_t rep_nsites;
+
     int rep_ack_policy;
+
+    u_int32_t rep_ack_timeout;
+    u_int32_t rep_chkpoint_delay;
+    u_int32_t rep_conn_retry;
+    u_int32_t rep_elect_timeout;
+    u_int32_t rep_elect_retry;
+    u_int32_t rep_heartbeat_monitor; /* only available on a client */
+    u_int32_t rep_heartbeat_send;    /* only available on a master */
+    u_int32_t rep_lease_timeout;
+
     int rep_bulk;
+	int rep_lease;  /* if master lease is enabled? */
+
+    u_int32_t rep_priority;
+
     u_int32_t rep_req_max;
     u_int32_t rep_req_min;
-    u_int32_t page_size;
-    DBTYPE db_type;
-    int sdb_on; /* enable second database */
+
+    u_int32_t rep_fast_clock;
+    u_int32_t rep_slow_clock;
+
+    u_int32_t rep_limit_gbytes; 
+    u_int32_t rep_limit_bytes; 
 };
 
 typedef struct _stritem {
@@ -159,8 +182,6 @@ enum conn_states {
 #define NREAD_ADD 1
 #define NREAD_SET 2
 #define NREAD_REPLACE 3
-#define PKGET 4
-#define PVGET 5
 
 typedef struct {
     int    sfd;
@@ -237,7 +258,6 @@ void start_dl_detect_thread(void);
 void *bdb_chkpoint_thread __P((void *));
 void *bdb_dl_detect_thread __P((void *));
 void bdb_event_callback __P((DB_ENV *, u_int32_t, void *));
-int  sdb_callback(DB *sdbp, const DBT *pkey, const DBT *pdata, DBT *skey);
 void bdb_db_close(void);
 void bdb_env_close(void);
 void bdb_chkpoint(void);
@@ -330,5 +350,4 @@ extern struct bdb_settings bdb_settings;
 extern struct bdb_version bdb_version;
 extern DB_ENV *env;
 extern DB *dbp;
-extern DB *sdbp;
 extern int daemon_quit;

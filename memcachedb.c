@@ -108,7 +108,6 @@ struct bdb_settings bdb_settings;
 struct bdb_version bdb_version;
 DB_ENV *env;
 DB *dbp;
-DB *sdbp;
 
 int daemon_quit = 0;
 
@@ -873,7 +872,6 @@ static void process_stat(conn *c, token_t *tokens, const size_t ntokens) {
                 pos += sprintf(pos, "STAT db_type hash\r\n");
             }
         }
-        pos += sprintf(pos, "STAT sdb_on %d\r\n", bdb_settings.sdb_on);
         pos += sprintf(pos, "STAT txn_lg_bsize %u\r\n", bdb_settings.txn_lg_bsize);
         pos += sprintf(pos, "STAT txn_nosync %d\r\n", bdb_settings.txn_nosync);
         pos += sprintf(pos, "STAT dldetect_val %d\r\n", bdb_settings.dldetect_val);
@@ -883,13 +881,96 @@ static void process_stat(conn *c, token_t *tokens, const size_t ntokens) {
         return;
     }
 
-    if (strcmp(subcommand, "rep") == 0) {
+    if (strcmp(subcommand, "repcfg") == 0) {
         char temp[512];
         char *pos = temp;
         int ret;
-        DB_REP_STAT *statp;
         if (bdb_settings.is_replicated == 1){
-            /* here we get who is master */
+            if (env->rep_get_priority(env, &bdb_settings.rep_priority) == 0){
+                pos += sprintf(pos, "STAT rep_priority %d\r\n", bdb_settings.rep_priority);
+            }
+            if (env->repmgr_get_ack_policy(env, &bdb_settings.rep_ack_policy) == 0){
+                pos += sprintf(pos, "STAT rep_ack_policy %d\r\n", bdb_settings.rep_ack_policy);
+            }
+
+            if (env->rep_get_timeout(env, DB_REP_ACK_TIMEOUT, &bdb_settings.rep_ack_timeout) == 0){
+                pos += sprintf(pos, "STAT rep_ack_timeout %u\r\n", bdb_settings.rep_ack_timeout);
+            }
+            if (env->rep_get_timeout(env, DB_REP_CHECKPOINT_DELAY, &bdb_settings.rep_chkpoint_delay) == 0){
+                pos += sprintf(pos, "STAT rep_chkpoint_delay %u\r\n", bdb_settings.rep_chkpoint_delay);
+            }
+            if (env->rep_get_timeout(env, DB_REP_CONNECTION_RETRY, &bdb_settings.rep_conn_retry) == 0){
+                pos += sprintf(pos, "STAT rep_conn_retry %u\r\n", bdb_settings.rep_conn_retry);
+            }
+            if (env->rep_get_timeout(env, DB_REP_ELECTION_TIMEOUT, &bdb_settings.rep_elect_timeout) == 0){
+                pos += sprintf(pos, "STAT rep_elect_timeout %u\r\n", bdb_settings.rep_elect_timeout);
+            }
+            if (env->rep_get_timeout(env, DB_REP_ELECTION_RETRY, &bdb_settings.rep_elect_retry) == 0){
+                pos += sprintf(pos, "STAT rep_elect_retry %u\r\n", bdb_settings.rep_elect_retry);
+            }
+            if (env->rep_get_timeout(env, DB_REP_HEARTBEAT_MONITOR, &bdb_settings.rep_heartbeat_monitor) == 0){
+                pos += sprintf(pos, "STAT rep_heartbeat_monitor %u\r\n", bdb_settings.rep_heartbeat_monitor);
+            }
+            if (env->rep_get_timeout(env, DB_REP_HEARTBEAT_SEND, &bdb_settings.rep_heartbeat_send) == 0){
+                pos += sprintf(pos, "STAT rep_heartbeat_send %u\r\n", bdb_settings.rep_heartbeat_send);
+            }
+            if (env->rep_get_timeout(env, DB_REP_LEASE_TIMEOUT, &bdb_settings.rep_lease_timeout) == 0){
+                pos += sprintf(pos, "STAT rep_lease_timeout %u\r\n", bdb_settings.rep_lease_timeout);
+            }
+
+            if (env->rep_get_config(env, DB_REP_CONF_BULK, &bdb_settings.rep_bulk) == 0){
+                pos += sprintf(pos, "STAT rep_bulk %d\r\n", bdb_settings.rep_bulk);
+            }
+            if (env->rep_get_config(env, DB_REP_CONF_LEASE, &bdb_settings.rep_lease) == 0){
+                pos += sprintf(pos, "STAT rep_lease %d\r\n", bdb_settings.rep_lease);
+            }
+
+            if (env->rep_get_request(env, &bdb_settings.rep_req_min, &bdb_settings.rep_req_max) == 0){ 
+                pos += sprintf(pos, "STAT rep_request %u/%u\r\n", bdb_settings.rep_req_min, bdb_settings.rep_req_max);
+            } 
+
+            if (env->rep_get_clockskew(env, &bdb_settings.rep_fast_clock, &bdb_settings.rep_slow_clock) == 0){ 
+                pos += sprintf(pos, "STAT rep_clock %u/%u\r\n", bdb_settings.rep_fast_clock, bdb_settings.rep_slow_clock);
+            } 
+
+            if (env->rep_get_limit(env, &bdb_settings.rep_limit_gbytes, &bdb_settings.rep_limit_bytes) == 0){ 
+                pos += sprintf(pos, "STAT rep_limit %u/%u\r\n", bdb_settings.rep_limit_gbytes, bdb_settings.rep_limit_bytes);
+            } 
+
+            if (env->rep_get_nsites(env, &bdb_settings.rep_nsites) == 0){ 
+                pos += sprintf(pos, "STAT rep_nsites %u\r\n", bdb_settings.rep_nsites);
+            } 
+        }
+        pos += sprintf(pos, "END");
+        out_string(c, temp);
+        return;
+    }
+
+    if (strcmp(subcommand, "repgrp") == 0) {
+        char temp[1024];
+        char *pos = temp;
+        int ret;
+        if (bdb_settings.is_replicated == 1){
+            DB_REPMGR_SITE *list = NULL;
+            u_int count, i;
+            if ((0 == env->repmgr_site_list(env, &count, &list))) { 
+                for (i = 0; i < count; ++i) {
+                        pos += sprintf(pos, "STAT %d/%s:%d/%d\r\n", list[i].eid, list[i].host, list[i].port, list[i].status);
+                }
+            }
+            if (list != NULL)
+                free(list);
+    	}
+        pos += sprintf(pos, "END");
+        out_string(c, temp);
+        return;
+    }
+
+    if (strcmp(subcommand, "repms") == 0) {
+        char temp[1024];
+        char *pos = temp;
+        int ret;
+        if (bdb_settings.is_replicated == 1){
             DB_REPMGR_SITE *list = NULL;
             u_int count, i;
  
@@ -925,50 +1006,25 @@ static void process_stat(conn *c, token_t *tokens, const size_t ntokens) {
                 default:
                     pos += sprintf(pos, "STAT rep_ismaster REP_UNKNOWN\r\n");
             }
-
-            if (env->rep_get_priority(env, &bdb_settings.rep_priority) == 0){
-                pos += sprintf(pos, "STAT rep_priority %d\r\n", bdb_settings.rep_priority);
-            }
-            if (env->repmgr_get_ack_policy(env, &bdb_settings.rep_ack_policy) == 0){
-                pos += sprintf(pos, "STAT rep_ack_policy %d\r\n", bdb_settings.rep_ack_policy);
-            }
-            if (env->rep_get_timeout(env, DB_REP_ACK_TIMEOUT, &bdb_settings.rep_ack_timeout) == 0){
-                pos += sprintf(pos, "STAT rep_ack_timeout %u\r\n", bdb_settings.rep_ack_timeout);
-            }
-            if (env->rep_get_config(env, DB_REP_CONF_BULK, &bdb_settings.rep_bulk) == 0){
-                pos += sprintf(pos, "STAT rep_bulk %d\r\n", bdb_settings.rep_bulk);
-            }
-            if (env->rep_get_request(env, &bdb_settings.rep_req_min, &bdb_settings.rep_req_max) == 0){ 
-                pos += sprintf(pos, "STAT rep_request %u/%u\r\n", bdb_settings.rep_req_min, bdb_settings.rep_req_max);
-            } 
-            if (env->rep_stat(env, &statp, 0) == 0){
-                pos += sprintf(pos, "STAT rep_next_lsn %lu/%lu\r\n", (u_long)statp->st_next_lsn.file, (u_long)statp->st_next_lsn.offset);
-            }
-            if (statp != NULL)
-                free(statp);
-        }
+    	}
         pos += sprintf(pos, "END");
         out_string(c, temp);
         return;
     }
 
-    if (strcmp(subcommand, "repgrp") == 0) {
-        char temp[1024];
+    if (strcmp(subcommand, "replsn") == 0) {
+        char temp[128];
         char *pos = temp;
         int ret;
-        DB_REPMGR_SITE *list = NULL;
+        DB_REP_STAT *statp;
         if (bdb_settings.is_replicated == 1){
-            /* here we get who is master */
-            DB_REPMGR_SITE *list = NULL;
-            u_int count, i;
-            if ((0 == env->repmgr_site_list(env, &count, &list))) { 
-                for (i = 0; i < count; ++i) {
-                        pos += sprintf(pos, "STAT %d/%s:%d/%d\r\n", list[i].eid, list[i].host, list[i].port, list[i].status);
-                }
+            if (env->rep_stat(env, &statp, 0) == 0){
+                pos += sprintf(pos, "STAT rep_next_lsn %lu/%lu\r\n", (u_long)statp->st_next_lsn.file, (u_long)statp->st_next_lsn.offset);
             }
-            if (list != NULL)
-                free(list);
+            if (statp != NULL)
+                free(statp);
     	}
+
         pos += sprintf(pos, "END");
         out_string(c, temp);
         return;
@@ -1085,6 +1141,7 @@ static inline void process_get_command(conn *c, token_t *tokens, size_t ntokens)
             dbdata.data = it;
             dbdata.flags = DB_DBT_USERMEM;
 
+			stop = false;
             /* try to get a item from bdb */
             while (!stop) {
                 switch (ret = dbp->get(dbp, NULL, &dbkey, &dbdata, 0)) {
@@ -1141,7 +1198,7 @@ static inline void process_get_command(conn *c, token_t *tokens, size_t ntokens)
                    add_iov(c, ITEM_suffix(it), it->nsuffix + it->nbytes) != 0)
                    {
                        item_free(it);
-                           it = 0;
+                       it = 0;
                        break;
                    }
 
@@ -1195,234 +1252,6 @@ static inline void process_get_command(conn *c, token_t *tokens, size_t ntokens)
     stats.get_hits   += stats_get_hits;
     stats.get_misses += stats_get_misses;
     STATS_UNLOCK();
-
-    return;
-}
-
-static inline void process_pget_command(conn *c, token_t *tokens, size_t ntokens, int comm) {
-    bool stop = false;
-    char *key;
-    size_t nkey;
-    int i = 0;
-    int ret = 0;
-    int limit = 0; /* we get all matched item by default */
-    int n = 0; /* count for current sent items */
-    item *it = NULL;
-    token_t *key_token = &tokens[KEY_TOKEN];
-    DBT dbkey, dbdata;
-    DBC *cursorp;
-    u_int32_t cursor_flag = 0;
-    char prefix[KEY_MAX_LENGTH + 1];
-    assert(c != NULL);
-
-    /* hash and btree has different get flag */
-    if (bdb_settings.db_type == DB_HASH){
-        cursor_flag = DB_SET;
-    } else if (bdb_settings.db_type == DB_BTREE){
-        cursor_flag = DB_SET_RANGE;
-    } else {
-        /* do nothing */
-    }
-
-    /* get prefix */
-    key = key_token->value;
-    nkey = key_token->length;
-    if(nkey > KEY_MAX_LENGTH) {
-        out_string(c, "CLIENT_ERROR bad command line format");
-        return;
-    }
-    if(ntokens == 4) {
-        limit = strtol(tokens[2].value, NULL, 10);
-
-        if(errno == ERANGE) {
-            out_string(c, "CLIENT_ERROR bad command line format");
-            return;
-        }
-    }
-
-    memcpy(prefix, key_token->value, key_token->length);
-    prefix[key_token->length] = '\0';
-
-    /* get a cursor */
-    if (comm == PKGET){
-        dbp->cursor(dbp, NULL, &cursorp, 0);
-    } else if (comm == PVGET){
-        sdbp->cursor(sdbp, NULL, &cursorp, 0);
-    } else {
-        /* nothing happened */
-    }
-
-    /* first, alloc a fixed size */
-    it = item_alloc2(settings.item_buf_size);
-    if (it == 0) {
-        out_string(c, "SERVER_ERROR out of memory");
-        return;
-    }
-
-    /* get first item from bdb */
-    BDB_CLEANUP_DBT();
-    dbkey.data = prefix;
-    dbkey.size = strlen(prefix);
-    dbkey.ulen = KEY_MAX_LENGTH + 1;
-    dbkey.flags = DB_DBT_USERMEM | DB_DBT_PARTIAL;
-    dbkey.doff = 0;
-    dbkey.dlen = KEY_MAX_LENGTH;
-    dbdata.ulen = settings.item_buf_size;
-    dbdata.data = it;
-    dbdata.flags = DB_DBT_USERMEM;
- 
-    while (!stop) {
-        switch (ret = cursorp->get(cursorp, &dbkey, &dbdata, cursor_flag)) {
-        case DB_BUFFER_SMALL:    /* user mem small */
-            /* free the original smaller buffer */
-            item_free(it);
-            /* alloc the correct size */
-            it = item_alloc2(dbdata.size);
-            if (it == 0) {
-                out_string(c, "SERVER_ERROR out of memory");
-                return;
-            }
-            dbdata.ulen = dbdata.size;
-            dbdata.data = it;
-            stop = false;
-            break;
-        case 0:
-            if (0 != strncmp(key, prefix, nkey)){
-                /* never leak memory */
-                item_free(it);
-                it = 0;
-            }
-            stop = true;
-            break;
-        default:
-            /* TODO: may cause bug here, if return DB_BUFFER_SMALL then retun non-zero again
-             * here 'it' may not a full it. */
-            item_free(it);
-            it = 0;
-            stop = true;
-            if (settings.verbose > 1) {
-                fprintf(stderr, "cursorp->get: %s\n", db_strerror(ret));
-            }
-        }
-    }
-
-    while (it) {
-        if (i >= c->isize) {
-            item **new_list = realloc(c->ilist, sizeof(item *) * c->isize * 2);
-            if (new_list) {
-                c->isize *= 2;
-                c->ilist = new_list;
-            } else {
-                item_free(it);
-                it = 0;
-                break;
-            }
-        }
-
-        /*
-         * Construct the response. Each hit adds three elements to the
-         * outgoing data list:
-         *   "VALUE "
-         *   key
-         *   " " + flags + " " + data length + "\r\n" + data (with \r\n)
-         */
-
-        if (add_iov(c, "VALUE ", 6) != 0 ||
-           add_iov(c, ITEM_key(it), it->nkey) != 0 ||
-           add_iov(c, ITEM_suffix(it), it->nsuffix + it->nbytes) != 0)
-           {
-               item_free(it);
-               it = 0;
-               break;
-           }
-
-        if (settings.verbose > 1)
-            fprintf(stderr, ">%d sending key %s\n", c->sfd, ITEM_key(it));
-
-        *(c->ilist + i) = it;
-        i++;
-
-        n++;
-        /* here we check if itemn reach the limit */ 
-        if (limit > 0 && n == limit ){
-            break;
-        }
-
-        /* first, alloc a fixed size */
-        it = item_alloc2(settings.item_buf_size);
-        if (it == 0) {
-            out_string(c, "SERVER_ERROR out of memory");
-            return;
-        }
-
-        /* get next item from bdb */
-        BDB_CLEANUP_DBT();
-        dbkey.data = prefix;
-        dbkey.size = strlen(prefix);
-        dbkey.ulen = KEY_MAX_LENGTH + 1;
-        dbkey.flags = DB_DBT_USERMEM | DB_DBT_PARTIAL;
-        dbkey.doff = 0;
-        dbkey.dlen = KEY_MAX_LENGTH;
-        dbdata.ulen = settings.item_buf_size;
-        dbdata.data = it;
-        dbdata.flags = DB_DBT_USERMEM;
-  
-        stop = false;
-        while (!stop) {
-            switch (ret = cursorp->get(cursorp, &dbkey, &dbdata, DB_NEXT)) {
-            case DB_BUFFER_SMALL:    /* user mem small */
-                /* free the original smaller buffer */
-                item_free(it);
-                /* alloc the correct size */
-                it = item_alloc2(dbdata.size);
-                if (it == 0) {
-                    out_string(c, "SERVER_ERROR out of memory");
-                    return;
-                }
-                dbdata.ulen = dbdata.size;
-                dbdata.data = it;
-                stop = false;
-                break;
-            case 0:
-                if (0 != strncmp(key, prefix, nkey)){
-                    /* never leak memory */
-                    item_free(it);
-                    it = 0;
-                }
-                stop = true;
-                break;
-            default:
-                item_free(it);
-                it = 0;
-                stop = true;
-                if (settings.verbose > 1) {
-                    fprintf(stderr, "cursorp->get: %s\n", db_strerror(ret));
-                }
-            }
-        }
-    }
-
-    c->icurr = c->ilist;
-    c->ileft = i;
-
-    /* Close the cursor */
-    if (cursorp != NULL) 
-        cursorp->close(cursorp);
-
-    if (settings.verbose > 1)
-        fprintf(stderr, ">%d END\n", c->sfd);
-
-    /*
-        If the loop was terminated because of out-of-memory, it is not
-        reliable to add END\r\n to the buffer, because it might not end
-        in \r\n. So we send SERVER_ERROR instead.
-    */
-    if (add_iov(c, "END\r\n", 5) != 0 || (c->udp && build_udp_headers(c) != 0)) {
-        out_string(c, "SERVER_ERROR out of memory");
-    } else {
-        conn_set_state(c, conn_mwrite);
-        c->msgcurr = 0;
-    }
 
     return;
 }
@@ -1900,12 +1729,6 @@ static void process_command(conn *c, char *command) {
         (strcmp(tokens[COMMAND_TOKEN].value, "get") == 0) ) {
 
         process_get_command(c, tokens, ntokens);
-
-    } else if (ntokens >= 3 && ntokens <= 4 && 
-               ((strcmp(tokens[COMMAND_TOKEN].value, "pkget") == 0 && (comm = PKGET)) ||
-                (strcmp(tokens[COMMAND_TOKEN].value, "pvget") == 0 && (comm = PVGET) && bdb_settings.sdb_on))) {
-
-        process_pget_command(c, tokens, ntokens, comm);
 
     } else if (ntokens == 6 &&
                ((strcmp(tokens[COMMAND_TOKEN].value, "add") == 0 && (comm = NREAD_ADD)) ||
@@ -2633,7 +2456,7 @@ static void usage(void) {
            "-r            maximize core file limit\n"
            "-u <username> assume identity of <username> (only when run as root)\n"
            "-c <num>      max simultaneous connections, default is 1024\n"
-           "-b <num>      size smaller than <num> will use fast memory alloc, default is 512B\n"
+           "-b <num>      item size smaller than <num> will use fast memory alloc, default is 512B\n"
            "-v            verbose (print errors/warnings while in event loop)\n"
            "-vv           very verbose (also print client commands/reponses)\n"
            "-h            print this help and exit\n"
@@ -2653,7 +2476,6 @@ static void usage(void) {
     printf("-C <num>      do checkpoint every <num> seconds, 0 for disable, default is 60s\n");
     printf("-D <num>      do deadlock detecting every <num> millisecond, 0 for disable, default is 100ms\n");
     printf("-N            enable DB_TXN_NOSYNC to gain big performance improved, default is off\n");
-    printf("-E            enable second database that you can use 'pvget' to get values by prefix, default is off\n");
     printf("--------------------Replication Options-------------------------------\n");
     printf("-R            identifies the host and port used by this site (required).\n");
     printf("-O            identifies another site participating in this replication group\n");
@@ -2953,9 +2775,6 @@ int main (int argc, char **argv) {
             break;
         case 'N':
             bdb_settings.txn_nosync = 1;
-            break;
-        case 'E':
-            bdb_settings.sdb_on = 1;
             break;
         case 'M':
             if (bdb_settings.rep_start_policy == DB_REP_CLIENT){
