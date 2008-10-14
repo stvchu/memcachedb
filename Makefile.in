@@ -169,8 +169,8 @@ target_alias = @target_alias@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 memcachedb_SOURCES = memcachedb.c item.c memcachedb.h thread.c bdb.c stats.c
-SUBDIRS = doc tools
-EXTRA_DIST = doc tools CREDITS AUTHORS LICENSE
+SUBDIRS = doc tools conf
+EXTRA_DIST = doc tools conf CREDITS AUTHORS LICENSE
 all: config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-recursive
 
@@ -671,6 +671,7 @@ uninstall-am: uninstall-binPROGRAMS
 dist-hook:
 	rm -rf $(distdir)/doc/.svn/
 	rm -rf $(distdir)/tools/.svn/
+	rm -rf $(distdir)/conf/.svn/
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:
