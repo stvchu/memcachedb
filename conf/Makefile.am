@@ -1,0 +1,1 @@
+EXTRA_DIST = DB_CONFIG.example
