@@ -1,0 +1,204 @@
+2008-10-13 Steve Chu <stvchu@gmail.com>
+  * a new unittest suit 'mdbtest.py' added
+  * a new benchmark suit 'mcben.py' added for Memcached/MemcacheDB
+
+2008-10-08 Steve Chu <stvchu@gmail.com>
+  * lots of statistics code clean up; stats command adjusted for better rendering; now more replication statistics info is provided. 
+  * more compact and verbose message for logging
+  * lots of replication code clean up for more reliable electing, a new option "-n" is added that allows user to customize the votes of electing.
+  * "memcache.py" is nearly patched for recent changes on private commands. The "mdbtop.py" tool is updated either.
+
+2008-09-04 Steve Chu <stvchu@gmail.com>
+  * New option '-e' to set percent of the pages in the cache that should be clean, used for memp_trickle call(only available when '-T' is presented).
+   
+2008-09-03 Steve Chu <stvchu@gmail.com>
+  * Replace the database type setting option '-T' with '-B'
+  * Now '-T' has new meaning that it fires a separate thread to do memp_trickle every xx seconds.
+    This feature makes the memory pool more effective by reducing too much frequent pages swapping.
+   
+2008-09-01 Steve Chu <stvchu@gmail.com>
+  * Now 'append' and 'prepend' commands are supported.
+  * Merge bugfix code from Memecached community.
+  * lots of refactors for better implementation and a bit code tuning.
+
+2008-08-28 Version 1.1.0 released
+2008-08-28 Version 1.0.4 released(maitaining release)
+
+2008-07-25 Steve Chu <stvchu@gmail.com>
+  * Warning: 'pkget' and 'pvget' private command now has been discarded. 
+    MemcacheDB will be a more memcache protocol compatible daemon(append and
+    prepend command will be implemented later), and will not add relational 
+    data model any more, the structural data storage will be issued by another
+    project (now internal only).
+
+2008-07-25 Steve Chu <stvchu@gmail.com>
+  * Bugfix: "multiple get" did not return the right value
+
+2008-07-23 Steve Chu <stvchu@gmail.com>
+  * add more other replication configure parameters
+
+2008-07-14 Steve Chu <stvchu@gmail.com>
+  * rename "default.db" to "data.db" for less ambiguity
+
+2008-07-04 Steve Chu <stvchu@gmail.com>
+  * work well with Mac OS X(tested on Lepard 10.5.4)
+  * new 'db_compact' private command to compact a btree database
+
+2008-07-03 Version 1.1.0-beta released
+
+2008-06-26 Steve Chu <stvchu@gmail.com>
+  * unix socket connectivity now has be well tested.
+
+2008-06-13 Steve Chu <stvchu@gmail.com>
+  * some code refactoring to improve a bit performance
+
+2008-06-11 Steve Chu <stvchu@gmail.com>
+  * now '-b' option is a tuning way, not a limit. item size that smaller than
+    '-b' value use fast freelist alloc, otherwise, use system 'malloc' instead.
+    Many thanks to Davies Liu <davies.liu@gmail.com> for patches and ideas.
+
+2008-06-03 Steve Chu <stvchu@gmail.com>
+  * new support to BerkeleyDB 4.7
+    - new version is BerkeleyDB 4.7 only, due to the changed bdb api
+    - 'rep_set_request' now use time, not the number of messages
+
+  * Bugfix: 'pkget' and "multiple get" that return lots of items may 
+    cause memory overflow so the daemon crashes. Thanks to Davies Liu <davies.liu@gmail.com>
+
+  * flooded verbose messages of bdb and replication now move to '-vv' option
+
+2008-04-13 Steve Chu <stvchu@gmail.com>
+  * Changes:
+     - allow limitation to 'pkget' and 'pvget' command, 
+       use 'pkget/pvget <prefix> [limit]' to get limited matched items. 
+	 - 'memcache.py' is also patched for this feature.
+
+2008-04-03 Steve Chu <stvchu@gmail.com>
+  * New features: 
+    - add '-T' option to set database type, 'btree' or 'hash'
+    - add '-E' option to enable second database, so we can use 'pvget'
+    - new command 'pkget' that you can get items with a key prefix
+    - new command 'pvget' that you can get items with a value prefix
+  * Changes:
+    - add support to memcache.py for 'pkget' and 'pvget' command, see
+	'tools/memcache.py'
+
+2008-03-21 Version 1.0.3 released
+
+2008-03-21 Steve Chu <stvchu@gmail.com>
+  * Bugfix: --with-bdb can not find libdb.so and db.h
+
+2008-03-17 Steve Chu <stvchu@gmail.com>
+  * add a '-A' option to set page size, and also can get this value from
+    'stats bdb'
+
+2008-03-07 Steve Chu <stvchu@gmail.com>
+  * new private command 'rep_set_request' available, to set wehther it allows bulk
+    transfer and also can get this value from 'stats rep'. See 'doc/replication.txt'
+  * mdbtop.py update
+
+2008-03-06 Steve Chu <stvchu@gmail.com>
+  * new private command 'rep_set_bulk' available, to set wehther it allows bulk
+    transfer and also can get this value from 'stats rep'. See 'doc/replication.txt'
+
+2008-03-05 Steve Chu <stvchu@gmail.com>
+  * add 'next_lsn' to 'stats rep' to show master-slave sync status
+  * Make the default ack policy 'DB_REPMGR_ACKS_ONE_PEER'
+  * upgrade 'mdbtop.py' for better rendering
+
+2008-03-04 Version 1.0.2-beta released
+2008-03-03 Steve Chu <stvchu@gmail.com>
+  * replication configure changed and improved:
+    - Make the default ack policy 'DB_REPMGR_ACKS_ALL_PEERS'
+    - Make the default ack timeout 20 millisecond
+    - two new private commands 'rep_set_ack_policy' and
+      'rep_set_ack_timeout' are available to set ack_policy and ack_timeout,
+      and 'stats rep' also includes this two value. See
+      'docs/replication.txt'
+
+2008-02-29 Steve Chu <stvchu@gmail.com>
+  * give a warning if item buffer size larger than 256KB
+  * memcache.py is patched for private commands. See 'tools/memcache.py'
+
+2008-02-26 Steve Chu <stvchu@gmail.com>
+  * Bugfix: incr/decr is not atomic in multithread, porting mistake from memcached
+
+2008-02-21 Version 1.0.1-beta released
+
+2008-02-21 Steve Chu <stvchu@gmail.com>
+  * Bugfix: some private commands may cause seg fault
+
+2008-02-20 Steve Chu <stvchu@gmail.com>
+  * Bugfix: incr/decr command did not update length string
+
+2008-02-18 Steve Chu <stvchu@gmail.com>
+  * merge all read-only private command of replication into 'stats rep' that memcached client
+    can read it. Original commands are still available. 'stats bdb' is also provided.	
+  * 'mdbtop.py', a new monitor tool is added for easy maintaining. See 'tools/mdbtop.py'
+
+2008-02-14 Big Version 1.0.0-beta released
+
+2008-02-01 Steve Chu <stvchu@gmail.com>
+  * Almost entire code is rewritten based on Memcached 1.2.x.
+  * More memcache protocol compatibility, now multiple get and flags are supported,
+    also udp and unix socket is ready(not yet tested).
+  * big performance improved due to memcached 1.2.x code base. Thread is
+    used to resolve the blocked I/O.
+  * use standard build tool, "./configure;make;make install" and done.
+  * two new pravite command for replication to set/get priority. See
+    "doc/replication.txt".
+
+2008-01-21 Version 0.1.1 released
+
+2008-01-21 Steve Chu <stvchu@gmail.com>
+  * Bug fix: out string 'NOT STORED' breaks clients, it should be
+    'NOT_STORED'! 
+
+2007-11-05 Version 0.1.0 released
+
+2007-10-30 Cao Kai <caokai@staff.sina.com.cn>, Steve Chu <stvchu@gmail.com>
+  * big replication code merged, let's ship it!
+    using option "-R" to enable replication, two private command is added for
+    replication: db_ismaster, db_whoismaster
+  * code refactor for performance and readability
+
+2007-10-23 Version 0.0.4 released
+
+2007-10-22 Steve Chu <stvchu@gmail.com>
+  * add a new struct db_settings for all db related configures.
+  * big code cleanup for performance.
+  * "-L" option now uses a unit of kbytes. 
+
+2007-10-19 Cao Kai <caokai@staff.sina.com.cn>
+  * add option "-C" and create a separate thread to do periodic checkpoint
+  * add option "-D" and create a separate thread to do periodic deadlock detecting
+
+2007-10-15 Novey Donar <xiaogang1@staff.sina.com.cn>
+  * remove the item key in data.data, about 50% db file size reduced, but not compatible
+    with previous versions, warning to use.
+
+2007-10-08 Steve Chu <stvchu@gmail.com>
+  * add option "-L" to allow to set transaction log buffer
+  * add option "-N" to allow to set DB_TXN_NOSYNC flag, if someone wanted
+    lots of performance improved, but warning to use, because it loses transaction's durability
+
+2007-09-29 Version 0.0.3 released
+
+2007-09-29 Steve Chu <stvchu@gmail.com>
+  * add command "flush_all" that will truncate a database, warning to use.
+  * lots of code formated
+  * Bugfix: Now using "-u" option can get proper db file mode
+
+2007-09-21 Version 0.0.2 released
+
+2007-09-20 Steve Chu <stvchu@gmail.com>
+  * move some macro to memcachedb.h
+  * rename chkpoint to db_checkpoint, for consistency.
+  * add new command "db_archive" to remove log files that are no longer needed
+  * README updated
+
+2007-09-19 Steve Chu <stvchu@gmail.com>
+  * enlarge incr value to unsigned int to conform memcache protocol, now supports max value of 4294967295.
+
+2007-09-18 Version 0.0.1 released
+
