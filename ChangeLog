@@ -1,6 +1,7 @@
-2008-10-13 Steve Chu <stvchu@gmail.com>
-  * a new unittest suit 'mdbtest.py' added
-  * a new benchmark suit 'mcben.py' added for Memcached/MemcacheDB
+2008-10-14 Steve Chu <stvchu@gmail.com>
+  * a new unittest suit 'mdbtest.py' is added
+  * a new benchmark suit 'mcben.py' is added, now you can get the benchmark in your environment
+    and find out how fast MemcacheDB can run.
 
 2008-10-08 Steve Chu <stvchu@gmail.com>
   * lots of statistics code clean up; stats command adjusted for better rendering; now more replication statistics info is provided. 
