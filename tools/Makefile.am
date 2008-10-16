@@ -1,1 +1,1 @@
-EXTRA_DIST = *.py *.cfg
+EXTRA_DIST = *.py

@@ -1,3 +1,5 @@
+2008-10-16 Version 1.2.0-beta released
+
 2008-10-14 Steve Chu <stvchu@gmail.com>
   * a new unittest suit 'mdbtest.py' is added
   * a new benchmark suit 'mcben.py' is added, now you can get the benchmark in your environment
@@ -7,7 +9,7 @@
   * lots of statistics code clean up; stats command adjusted for better rendering; now more replication statistics info is provided. 
   * more compact and verbose message for logging
   * lots of replication code clean up for more reliable electing, a new option "-n" is added that allows user to customize the votes of electing.
-  * "memcache.py" is nearly patched for recent changes on private commands. The "mdbtop.py" tool is updated either.
+  * "memcache.py" is nearly patched for recent changes on private commands. 
 
 2008-09-04 Steve Chu <stvchu@gmail.com>
   * New option '-e' to set percent of the pages in the cache that should be clean, used for memp_trickle call(only available when '-T' is presented).
