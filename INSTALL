@@ -39,7 +39,7 @@ Installation
 ============
 $tar xvzf memcachedb-X.Y.Z.tar.gz
 $cd memcachedb-X.Y.Z
-$./configure
+$./configure --enable-threads
 $make
 $sudo make install
 

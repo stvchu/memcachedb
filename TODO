@@ -1,5 +1,0 @@
-TODO List:
-* prepend and append command support
-* more reliable replication
-* more friendly item buffer management
-* RoundRobin does not solve blocked well
