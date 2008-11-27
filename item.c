@@ -300,9 +300,10 @@ item *item_cget(DBC *cursorp, char *start, size_t nstart, u_int32_t flags){
             if (it == NULL) {
                 return NULL;
             }
+            dbkey.data = start;
+            dbkey.size = nstart;
             dbdata.ulen = dbdata.size;
             dbdata.data = it;
-            // flags = DB_CURRENT;
             break;
         case 0:                  /* Success. */
             stop = true;

@@ -1,5 +1,5 @@
 AC_PREREQ(2.61)
-AC_INIT([memcachedb], [1.2.0], [stvchu@gmail.com])
+AC_INIT([memcachedb], [1.2.1-beta], [stvchu@gmail.com])
 AM_INIT_AUTOMAKE([-Wall -Werror foreign])
 AC_PROG_CC
 AM_PROG_CC_C_O

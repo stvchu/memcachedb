@@ -2617,10 +2617,10 @@ int main (int argc, char **argv) {
 #endif
         case 'b':
             settings.item_buf_size = atoi(optarg);
-            if(settings.item_buf_size < 512){
-                fprintf(stderr, "item buf size must be larger than 512 bytes\n");
-                exit(EXIT_FAILURE);
-            } 
+            // if(settings.item_buf_size < 512){
+            //     fprintf(stderr, "item buf size must be larger than 512 bytes\n");
+            //     exit(EXIT_FAILURE);
+            // } 
             if(settings.item_buf_size > 256 * 1024){
                 fprintf(stderr, "Warning: item buffer size(-b) larger than 256KB may cause performance issue\n");
             } 
