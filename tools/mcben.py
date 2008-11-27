@@ -84,7 +84,7 @@ class MemcacheBenchCase(object):
 
 class Setter(threading.Thread):
   def __init__(self, server, requests, value_length):
-    self.mc_ = memcache.Client([server], debug=0)
+    self.mc_ = memcache.Client([server], debug=1)
     self.requests_ = requests
     self.value_length_ = value_length
     threading.Thread.__init__(self)

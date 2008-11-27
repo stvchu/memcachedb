@@ -63,6 +63,8 @@
 
 #define BDB_EID_SELF -3
 
+#define RGET_MAX_ITEMS 100
+
 /* Get a consistent bool type */
 #if HAVE_STDBOOL_H
 # include <stdbool.h>
@@ -286,6 +288,7 @@ void start_dl_detect_thread(void);
 void bdb_db_close(void);
 void bdb_env_close(void);
 void bdb_chkpoint(void);
+int bdb_defcmp(void *a, size_t i, void *b, size_t j);
 
 /* item management */
 void item_init(void);
@@ -298,6 +301,7 @@ item *item_get(char *key, size_t nkey);
 int item_put(char *key, size_t nkey, item *it);
 int item_delete(char *key, size_t nkey);
 int item_exists(char *key, size_t nkey);
+item *item_cget(DBC *cursorp, char *start, size_t nstart, u_int32_t flags);
 
 /* bdb related stats */
 void stats_bdb(char *temp);

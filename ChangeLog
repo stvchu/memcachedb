@@ -1,3 +1,11 @@
+2008-11-27 Steve Chu <stvchu@gmail.com>
+  * new flexible query command 'rget' implemented, can do range query based
+	on keys. See 'doc/rget.txt' for details.
+
+2008-11-26 Steve Chu <stvchu@gmail.com>
+  * more graceful exit
+
+2008-11-24 Version 1.2.0 released
 2008-10-16 Version 1.2.0-beta released
 
 2008-10-14 Steve Chu <stvchu@gmail.com>

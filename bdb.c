@@ -490,3 +490,31 @@ void bdb_chkpoint(void)
         }
     }
 }
+
+/*
+ *  BDB default comparison routine.
+ */
+int bdb_defcmp(void *a, size_t i, void *b, size_t j){
+    size_t len;
+    uint8_t *p1, *p2;
+
+   /*
+    * Returns:
+    *  < 0 if a is < b
+    *  = 0 if a is = b
+    *  > 0 if a is > b
+    *
+    * XXX
+    * If a size_t doesn't fit into a long, or if the difference between
+    * any two characters doesn't fit into an int, this routine can lose.
+    * What we need is a signed integral type that's guaranteed to be at
+    * least as large as a size_t, and there is no such thing.
+    */
+    len = i > j ? j : i;
+    for (p1 = a, p2 = b; len--; ++p1, ++p2)
+        if (*p1 != *p2)
+            return ((long)*p1 - (long)*p2);
+    return ((long)i - (long)j);
+}
+
+

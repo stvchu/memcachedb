@@ -263,6 +263,69 @@ item *item_get(char *key, size_t nkey){
     return it;
 }
 
+item *item_cget(DBC *cursorp, char *start, size_t nstart, u_int32_t flags){
+    item *it = NULL;
+    DBT dbkey, dbdata;
+    bool stop;
+    int ret;
+    
+    /* first, alloc a fixed size */
+    it = item_alloc2(settings.item_buf_size);
+    if (it == 0) {
+        return NULL;
+    }
+
+    BDB_CLEANUP_DBT();
+    dbkey.data = start;
+    dbkey.size = nstart;
+    dbkey.dlen = 0;
+    dbkey.doff = 0;
+    dbkey.flags = DB_DBT_PARTIAL;
+    dbdata.ulen = settings.item_buf_size;
+    dbdata.data = it;
+    dbdata.flags = DB_DBT_USERMEM;
+
+    stop = false;
+    /* try to get a item from bdb */
+    while (!stop) {
+        switch (ret = cursorp->get(cursorp, &dbkey, &dbdata, flags)) {
+        case DB_BUFFER_SMALL:    /* user mem small */
+            if (settings.verbose > 1) {
+                fprintf(stderr, "cursorp->get: %s\n", db_strerror(ret));
+            }
+            /* free the original smaller buffer */
+            item_free(it);
+            /* alloc the correct size */
+            it = item_alloc2(dbdata.size);
+            if (it == NULL) {
+                return NULL;
+            }
+            dbdata.ulen = dbdata.size;
+            dbdata.data = it;
+            // flags = DB_CURRENT;
+            break;
+        case 0:                  /* Success. */
+            stop = true;
+            break;
+        case DB_NOTFOUND:
+            stop = true;
+            item_free(it);
+            it = NULL;
+            break;
+        default:
+            /* TODO: may cause bug here, if return DB_BUFFER_SMALL then retun non-zero again
+             * here 'it' may not a full one. a item buffer larger than item_buf_size may be added to freelist */
+            stop = true;
+            item_free(it);
+            it = NULL;
+            if (settings.verbose > 1) {
+                fprintf(stderr, "cursorp->get: %s\n", db_strerror(ret));
+            }
+        }
+    }
+    return it;    
+}
+
 /* 0 for Success
    -1 for SERVER_ERROR
 */

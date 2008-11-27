@@ -1,0 +1,51 @@
+==================================
+'rget' - range query based on keys
+==================================
+
+Command Specification
+=====================
+
+rget <start key> <end key> <left openness flag> <right openness flag> <max items>\r\n
+
+- <start key> where the query starts.
+- <end key>   where the query ends.
+- <left openness flag> indicates the openness of left side, 0 means the result includes <start key>, while 1 means not.
+- <right openness flag> indicates the openness of right side, 0 means the result includes <end key>, while 1 means not.
+- <max items> how many items at most return, max is 100.
+
+After this command, the client expects zero or more items, each of
+which is received as a text line followed by a data block. After all
+the items have been transmitted, the server sends the string
+
+"END\r\n"
+
+to indicate the end of response.
+
+Each item sent by the server looks like this:
+
+VALUE <key> <flags> <bytes>\r\n
+<data block>\r\n
+
+- <key> is the key for the item being sent
+
+- <flags> is the flags value set by the storage command
+
+- <bytes> is the length of the data block to follow, *not* including
+  its delimiting \r\n
+
+- <data block> is the data for this item.
+
+Notice: all keys in MemcacheDB is sorted alphabetically, so is the return of query result.
+
+Usage
+======
+'rget' command can be used to:
+
+1. execute string based range query
+2. iterate the entire database
+3. query with key prefix
+
+FAQ
+====
+
+

@@ -1087,6 +1087,157 @@ static inline void process_get_command(conn *c, token_t *tokens, size_t ntokens)
     return;
 }
 
+static inline void process_rget_command(conn *c, token_t *tokens, size_t ntokens) {
+    char *start;
+    size_t nstart;
+    char *end;
+    size_t nend;
+    bool is_left_open;
+    bool is_right_open;
+    uint32_t max_items;
+    
+    DB_TXN *txn = NULL;
+    DBC *cursorp = NULL;
+    
+    int i = 0;
+    int ret = 0;
+    item *it = NULL;
+    bool is_left_checked = false;
+
+    assert(c != NULL);
+    
+    start = tokens[1].value;
+    nstart = tokens[1].length;
+    end = tokens[2].value;
+    nend = tokens[2].length;
+
+    if(nstart > KEY_MAX_LENGTH || nend > KEY_MAX_LENGTH) {
+        out_string(c, "CLIENT_ERROR bad command line format");
+        return;
+    }
+    
+    is_left_open = (tokens[3].value[0] == '1');
+    is_right_open = (tokens[4].value[0] == '1');
+        
+    max_items = strtoul(tokens[5].value, NULL, 10);
+    if(errno == ERANGE || max_items > RGET_MAX_ITEMS) {
+        out_string(c, "CLIENT_ERROR bad command line format");
+        return;
+    }
+    
+    /* transcation and cursor */
+    ret = env->txn_begin(env, NULL, &txn, 0);
+    if (ret != 0) {
+        fprintf(stderr, "envp->txn_begin: %s\n", db_strerror(ret));
+        out_string(c, "SERVER_ERROR envp->txn_begin");
+        return;
+    }
+    
+    /* Get a cursor, we use 2 degree isolation */
+    ret = dbp->cursor(dbp, txn, &cursorp, DB_READ_COMMITTED); 
+    if (ret != 0) {
+        fprintf(stderr, "dbp->cursor: %s\n", db_strerror(ret));
+        out_string(c, "SERVER_ERROR dbp->cursor");
+        return;
+    }
+    
+    it = item_cget(cursorp, start, nstart, DB_SET_RANGE);
+
+    while(it) {
+        /* skip first item? */
+        if (!is_left_checked && is_left_open &&
+             0 == bdb_defcmp(start, nstart, ITEM_key(it), it->nkey)){
+            item_free(it);
+            it = NULL;
+            is_left_checked = true;
+            it = item_cget(cursorp, NULL, 0, DB_NEXT);
+            continue;
+        }
+    
+        /* got the end? */
+        ret = bdb_defcmp(end, nend, ITEM_key(it), it->nkey);
+        if (ret < 0 || (ret == 0 && is_right_open)){
+            item_free(it);
+            it = NULL;
+            break;
+        }
+                
+        /* let vaild item out */
+        if (i >= c->isize) {
+            item **new_list = realloc(c->ilist, sizeof(item *) * c->isize * 2);
+            if (new_list) {
+                c->isize *= 2;
+                c->ilist = new_list;
+            } else { 
+                item_free(it);
+                it = NULL;
+                break;
+            }
+        }
+        
+        /*
+         * Construct the response. Each hit adds three elements to the
+         * outgoing data list:
+         *   "VALUE "
+         *   key
+         *   " " + flags + " " + data length + "\r\n" + data (with \r\n)
+         */
+        
+        if (add_iov(c, "VALUE ", 6) != 0 ||
+           add_iov(c, ITEM_key(it), it->nkey) != 0 ||
+           add_iov(c, ITEM_suffix(it), it->nsuffix + it->nbytes) != 0)
+           {
+               item_free(it);
+               it = NULL;
+               break;
+           }
+        
+        if (settings.verbose > 1)
+            fprintf(stderr, ">%d sending key %s\n", c->sfd, ITEM_key(it));
+        
+        *(c->ilist + i) = it;
+        i++;
+        /* got enough? */
+        if (i == max_items){
+            break;
+        }
+        /* move to the next item */    
+        it = item_cget(cursorp, NULL, 0, DB_NEXT);
+    }
+    
+    if (cursorp != NULL){
+        cursorp->close(cursorp);
+    }
+
+    /* txn commit */
+    ret = txn->commit(txn, 0);
+    if (ret != 0) {
+        fprintf(stderr, "txn->commit: %s\n", db_strerror(ret));
+        txn->abort(txn);
+    }
+    
+    c->icurr = c->ilist;
+    c->ileft = i;
+
+    if (settings.verbose > 1)
+        fprintf(stderr, ">%d END\n", c->sfd);
+
+    /*
+        If the loop was terminated because of out-of-memory, it is not
+        reliable to add END\r\n to the buffer, because it might not end
+        in \r\n. So we send SERVER_ERROR instead.
+    */
+    if (add_iov(c, "END\r\n", 5) != 0
+        || (c->udp && build_udp_headers(c) != 0)) {
+        out_string(c, "SERVER_ERROR out of memory writing rget response");
+    } else {
+        conn_set_state(c, conn_mwrite);
+        c->msgcurr = 0;
+    }
+
+    return;
+}
+
 static void process_update_command(conn *c, token_t *tokens, const size_t ntokens, int comm) {
     char *key;
     size_t nkey;
@@ -1395,6 +1546,10 @@ static void process_command(conn *c, char *command) {
 
         process_update_command(c, tokens, ntokens, comm);
 
+    } else if (ntokens == 7 && (strcmp(tokens[COMMAND_TOKEN].value, "rget") == 0)) {
+    
+        process_rget_command(c, tokens, ntokens);
+    
     } else if (ntokens == 4 && (strcmp(tokens[COMMAND_TOKEN].value, "incr") == 0)) {
 
         process_arithmetic_command(c, tokens, ntokens, 1);
@@ -2348,17 +2503,26 @@ static void remove_pidfile(const char *pid_file) {
 /* for safely exit, make sure to do checkpoint*/
 static void sig_handler(const int sig)
 {
+    int ret;
     if (sig != SIGTERM && sig != SIGQUIT && sig != SIGINT) {
         return;
     }
+    if (daemon_quit == 1){
+        return;
+    }
     daemon_quit = 1;
-    fprintf(stderr, "Signal %d handled, memcacahedb is now exit..\n", sig);
+    fprintf(stderr, "Signal(%d) received, try to exit daemon gracefully..\n", sig);
+
+    /* exit event loop first */
+    fprintf(stderr, "exit event base...");    
+    ret = event_base_loopexit(main_base, 0);
+    if (ret == 0)
+      fprintf(stderr, "done.\n");
+    else
+      fprintf(stderr, "error.\n");
 
     /* make sure deadlock detect loop is quit*/
     sleep(2);
-
-    /* then we exit to call axexit */
-    exit(EXIT_SUCCESS);
 }
 
 int main (int argc, char **argv) {
@@ -2679,20 +2843,6 @@ int main (int argc, char **argv) {
         }
     }
     
-    /* register atexit callback function */
-    if (0 != atexit(bdb_env_close)) {
-        fprintf(stderr, "can not register close_env"); 
-        exit(EXIT_FAILURE);
-    }
-    if (0 != atexit(bdb_db_close)) {
-        fprintf(stderr, "can not register close_db"); 
-        exit(EXIT_FAILURE);
-    }
-    if (0 != atexit(bdb_chkpoint)) {
-        fprintf(stderr, "can not register db_checkpoint"); 
-        exit(EXIT_FAILURE);
-    }
-    
     /* here we init bdb env and open db */
     bdb_env_init();
     bdb_db_open();
@@ -2704,6 +2854,13 @@ int main (int argc, char **argv) {
 
     /* enter the event loop */
     event_base_loop(main_base, 0);
+    
+    /* cleanup bdb staff */
+    fprintf(stderr, "try to clean up bdb resource...\n");
+    bdb_chkpoint();
+    bdb_db_close();
+    bdb_env_close();
+    
     /* remove the PID file if we're a daemon */
     if (daemonize)
         remove_pidfile(pid_file);
