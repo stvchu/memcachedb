@@ -2348,6 +2348,7 @@ static void usage(void) {
     printf("-e <num>      percent of the pages in the cache that should be clean, default is 60%%\n");
     printf("-D <num>      do deadlock detecting every <num> millisecond, 0 for disable, default is 100ms\n");
     printf("-N            enable DB_TXN_NOSYNC to gain big performance improved, default is off\n");
+    printf("-X            allocate region memory from the heap, default is off\n");
     printf("--------------------Replication Options-------------------------------\n");
     printf("-R            identifies the host and port used by this site (required).\n");
     printf("-O            identifies another site participating in this replication group\n");
@@ -2563,7 +2564,7 @@ int main (int argc, char **argv) {
     setbuf(stderr, NULL);
 
     /* process arguments */
-    while ((c = getopt(argc, argv, "a:U:p:s:c:hivl:dru:P:t:b:f:H:B:m:A:L:C:T:e:D:NMSR:O:n:")) != -1) {
+    while ((c = getopt(argc, argv, "a:U:p:s:c:hivl:dru:P:t:b:f:H:B:m:A:L:C:T:e:D:NXMSR:O:n:")) != -1) {
         switch (c) {
         case 'a':
             /* access for unix domain socket, as octal mask (like chmod)*/
@@ -2669,6 +2670,9 @@ int main (int argc, char **argv) {
             break;
         case 'N':
             bdb_settings.txn_nosync = 1;
+            break;
+        case 'X':
+            bdb_settings.env_flags |= DB_PRIVATE;
             break;
         case 'M':
             if (bdb_settings.rep_start_policy == DB_REP_CLIENT){

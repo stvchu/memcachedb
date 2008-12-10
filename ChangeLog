@@ -1,3 +1,6 @@
+2008-12-10 Steve Chu <stvchu@gmail.com>
+  * new option '-X' to make the BerkeleyDB allocate region memory from the heap instead of from memory backed by the filesystem or system shared memory. If this option enabled, you can not use db_* standalone utilities(use private commands instead), but get performance improved.
+
 2008-11-27 Steve Chu <stvchu@gmail.com>
   * new flexible query command 'rget' implemented, can do range query based
 	on keys. See 'doc/rget.txt' for details.
