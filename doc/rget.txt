@@ -37,15 +37,62 @@ VALUE <key> <flags> <bytes>\r\n
 
 Notice: all keys in MemcacheDB is sorted alphabetically, so is the return of query result.
 
-Usage
-======
-'rget' command can be used to:
 
-1. execute string based range query
-2. iterate the entire database
-3. query with key prefix
+Sample Code 
+============
 
-FAQ
-====
+Notice: Here we use patched libmemcached, please see: http://memcachedb.googlecode.com/svn/clients/
+
+#include <libmemcached/memcached.h>
+/* other includes.. */
+
+int main(int argc, char *argv[]){
+    memcached_st *memc;
+    memcached_server_st *servers;
+    memcached_return rc;
+
+    char *hostname[] = {"127.0.0.1"};
+    unsigned int port[] = {21201};
+    
+    char key[MEMCACHED_MAX_KEY];
+    char value[1024];
+
+    char return_key[MEMCACHED_MAX_KEY];
+    char *return_value;
+    size_t return_key_length;
+    size_t return_value_length;
+    uint32_t flags;
+
+    memc = memcached_create(NULL);
+    servers = memcached_server_list_append(NULL, hostname[0], port[0], &rc);
+    if (MEMCACHED_SUCCESS != rc){
+        /* error */
+    }
+    rc = memcached_server_push(memc, servers);
+    if (MEMCACHED_SUCCESS != rc){
+       /* error */
+    }
+
+	/* mget-like api */
+	rc= memcached_rget(memc, "0", 1, "z", 1, 0, 0, 4);
+	assert(rc == MEMCACHED_SUCCESS);
+
+    while ((return_value= memcached_fetch(memc, return_key, &return_key_length, 
+                                          &return_value_length, &flags, &rc)))
+    {
+        assert(rc == MEMCACHED_SUCCESS);
+        memcpy(key, return_key, return_key_length);
+        key[return_key_length] = '\0';
+        memcpy(value, return_value, return_value_length);
+        value[return_value_length] = '\0';
+        /* other things */
+        free(return_value);
+    }
+
+    memcached_server_list_free(servers);
+    memcached_free(memc);
+    exit(EXIT_SUCCESS);
+}
+
 
 
