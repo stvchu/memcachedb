@@ -1,4 +1,4 @@
-2008-11-24 Version 1.2.1-beta released
+2008-12-25 Version 1.2.1-beta released
 
 2008-12-10 Steve Chu <stvchu@gmail.com>
   * new option '-X' to make the BerkeleyDB allocate region memory from the heap instead of from memory backed by the filesystem or system shared memory. If this option enabled, you can not use db_* standalone utilities(use private commands instead), but get performance improved.
