@@ -213,6 +213,35 @@ class Client(local):
 
         return(data)
 
+    def rget(self, start_key, end_key, is_left_open, is_right_open, limit):
+        check_key(start_key)
+        check_key(end_key)
+        if is_left_open != 0:
+            is_left_open = 1
+        if is_right_open != 0:
+            is_right_open = 1
+        if limit > 100 or limit <= 0:
+            limit = 100
+        
+        self._statlog('rget')
+        
+        retvals = []
+        for server in self.servers:
+            if not server.connect(): continue
+            try:
+                server.send_cmd('rget %s %s %d %d %d' % (start_key, end_key, is_left_open, is_right_open, limit))
+                line = server.readline()
+                while line and line != 'END':
+                    rkey, flags, rlen = self._expectvalue(server, line)
+                    if rkey is not None:
+                        val = self._recv_value(server, flags, rlen)
+                        retvals.append((rkey, val))
+                    line = server.readline()
+            except (_Error, socket.error), msg:
+                if type(msg) is types.TupleType: msg = msg[1]
+                server.mark_dead(msg)
+        return(retvals)
+
     def db_archive(self):
         'remove unused txn log'
         for s in self.servers:
