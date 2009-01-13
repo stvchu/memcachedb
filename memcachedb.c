@@ -143,8 +143,8 @@ static void settings_init(void) {
     settings.udpport = 0;
     /* By default this string should be NULL for getaddrinfo() */
     settings.inter = NULL;
-    settings.item_buf_size = 512;     /* default is 512B */
-    settings.maxconns = 1024;         /* to limit connections-related memory to about 5MB */
+    settings.item_buf_size = 2 * 1024;     /* default is 2KB */
+    settings.maxconns = 4 * 1024;         /* to limit connections-related memory to about 5MB * 4 */
     settings.verbose = 0;
     settings.socketpath = NULL;       /* by default, not using a unix socket */
 #ifdef USE_THREADS
@@ -2325,8 +2325,8 @@ static void usage(void) {
            "-d            run as a daemon\n"
            "-r            maximize core file limit\n"
            "-u <username> assume identity of <username> (only when run as root)\n"
-           "-c <num>      max simultaneous connections, default is 1024\n"
-           "-b <num>      item size smaller than <num> will use fast memory alloc, default is 512B\n"
+           "-c <num>      max simultaneous connections, default is 4096\n"
+           "-b <num>      item size smaller than <num> will use fast memory alloc, default is 2048 bytes\n"
            "-v            verbose (print errors/warnings while in event loop)\n"
            "-vv           very verbose (also print client commands/reponses)\n"
            "-h            print this help and exit\n"
@@ -2337,12 +2337,12 @@ static void usage(void) {
     printf("-t <num>      number of threads to use, default 4\n");
 #endif
     printf("--------------------BerkeleyDB Options-------------------------------\n");
-    printf("-m <num>      in-memmory cache size of BerkeleyDB in megabytes, default is 64MB\n");
+    printf("-m <num>      in-memmory cache size of BerkeleyDB in megabytes, default is 256MB\n");
     printf("-A <num>      underlying page size in bytes, default is 4096, (512B ~ 64KB, power-of-two)\n");
     printf("-f <file>     filename of database, default is 'data.db'\n");
     printf("-H <dir>      env home of database, default is '/data1/memcachedb'\n");
     printf("-B <db_type>  type of database, 'btree' or 'hash'. default is 'btree'\n");
-    printf("-L <num>      log buffer size in kbytes, default is 32KB\n");
+    printf("-L <num>      log buffer size in kbytes, default is 4MB\n");
     printf("-C <num>      do checkpoint every <num> seconds, 0 for disable, default is 5 minutes\n");
     printf("-T <num>      do memp_trickle every <num> seconds, 0 for disable, default is 30 seconds\n");
     printf("-e <num>      percent of the pages in the cache that should be clean, default is 60%%\n");

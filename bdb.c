@@ -39,8 +39,8 @@ void bdb_settings_init(void)
 {
     bdb_settings.db_file = DBFILE;
     bdb_settings.env_home = DBHOME;
-    bdb_settings.cache_size = 64 * 1024 * 1024; /* default is 64MB */ 
-    bdb_settings.txn_lg_bsize = 32 * 1024; /* default is 32KB */ 
+    bdb_settings.cache_size = 256 * 1024 * 1024; /* default is 256MB */ 
+    bdb_settings.txn_lg_bsize = 4 * 1024 * 1024; /* default is 4MB */ 
     bdb_settings.page_size = 4096;  /* default is 4K */
     bdb_settings.db_type = DB_BTREE;
     bdb_settings.txn_nosync = 0; /* default DB_TXN_NOSYNC is off */

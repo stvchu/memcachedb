@@ -1,3 +1,10 @@
+2009-01-13 Steve Chu <stvchu@gmail.com>
+  * some default settings policy changed(because most of us is using powerful box):
+   max simultaneous connections ('-c'): 1024 -> 4096
+   item buffer size('-b'): 512 bytes -> 2048 bytes
+   in-memmory cache size of BerkeleyDB('-m'): 64MB -> 256MB
+   log buffer size('-L'): 32KB -> 4MB
+ 
 2009-01-06 Steve Chu <stvchu@gmail.com>
   * new 'rget' command patch for 'memcache.py'
 
