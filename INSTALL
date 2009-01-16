@@ -52,16 +52,16 @@ Running Examples:
 
 1. run as a single daemon
 
-  memcachedb -p21201 -d -r -u root -H ./env -N -v
+  memcachedb -p21201 -d -r -H /data1/21201 -N -v >/data1/21201.log 2>&1
 
 2. run as a replicated group
 
   start a master (read&write):
 
-    memcachedb -p21201 -d -r -u root -H ./env1 -N -R 127.0.0.1:31201 -M
+    memcachedb -p21201 -d -r -H /data1/21201 -N -R 127.0.0.1:31201 -M -n 2 -v >/data1/21201.log 2>&1
 
   then, start a replcas (read-only):
 
-    memcachedb -p21202 -d -r -u root -H ./env2 -N -R 127.0.0.1:31202 -O 127.0.0.1:31201 -S
+    memcachedb -p21202 -d -r -H /data1/21202 -N -R 127.0.0.1:31202 -O 127.0.0.1:31201 -S -n 2 -v >/data1/21202.log 2>&1
 
 Have fun :)
