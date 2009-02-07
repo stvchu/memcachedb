@@ -1368,7 +1368,7 @@ char *do_add_delta(const bool incr, const int64_t delta, char *buf, char *key, s
 
     if (old_it != NULL)
         item_free(old_it);
-    if (old_it != NULL)
+    if (new_it != NULL)
         item_free(new_it);
 
     if (ret != 0) {
