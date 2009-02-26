@@ -46,7 +46,7 @@ void stats_bdb(char *temp){
     
     /* get cache size */
     if((ret = env->get_cachesize(env, &gbytes, &bytes, &ncache)) == 0){
-        pos += sprintf(pos, "STAT cache_size %lu/%lu/%d\r\n", gbytes, bytes, ncache);
+        pos += sprintf(pos, "STAT cache_size %u/%u/%d\r\n", gbytes, bytes, ncache);
     }
     
     pos += sprintf(pos, "STAT txn_lg_bsize %u\r\n", bdb_settings.txn_lg_bsize);
