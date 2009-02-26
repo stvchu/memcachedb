@@ -44,6 +44,7 @@ void bdb_settings_init(void)
     bdb_settings.page_size = 4096;  /* default is 4K */
     bdb_settings.db_type = DB_BTREE;
     bdb_settings.txn_nosync = 0; /* default DB_TXN_NOSYNC is off */
+    bdb_settings.log_auto_remove = 0; /* default DB_LOG_AUTO_REMOVE is off */
     bdb_settings.dldetect_val = 100 * 1000; /* default is 100 millisecond */
     bdb_settings.chkpoint_val = 60 * 5;
     bdb_settings.memp_trickle_val = 30;
@@ -125,10 +126,16 @@ void bdb_env_init(void){
             exit(EXIT_FAILURE);
         }
     }
-
+    
     /* set MPOOL size */
-    env->set_cachesize(env, 0, bdb_settings.cache_size, 0);
-
+    if (sizeof(void *) == 4 && bdb_settings.cache_size > (1024uLL * 1024uLL * 1024uLL * 2uLL)) {
+        fprintf(stderr, "32bit box only max 2GB memory pool allowed\n");
+        exit(EXIT_FAILURE);
+    }
+    env->set_cachesize(env, (u_int32_t) (bdb_settings.cache_size / (1024uLL * 1024uLL * 1024uLL)), 
+                            (u_int32_t) (bdb_settings.cache_size % (1024uLL * 1024uLL * 1024uLL)), 
+                            (int) (bdb_settings.cache_size / (1024uLL * 1024uLL * 1024uLL * 4uLL) + 1uLL) );
+    
     /* set DB_TXN_NOSYNC flag */
     if (bdb_settings.txn_nosync){
         env->set_flags(env, DB_TXN_NOSYNC, 1);
@@ -144,6 +151,18 @@ void bdb_env_init(void){
 
     /* set transaction log buffer */
     env->set_lg_bsize(env, bdb_settings.txn_lg_bsize);
+    
+    /* NOTICE:
+    If set, Berkeley DB will automatically remove log files that are no longer needed.
+    Automatic log file removal is likely to make catastrophic recovery impossible.
+    Replication applications will rarely want to configure automatic log file removal as it
+    increases the likelihood a master will be unable to satisfy a client's request 
+    for a recent log record.
+     */
+    if (!bdb_settings.is_replicated && bdb_settings.log_auto_remove){
+        fprintf(stderr, "log_auto_remove\n");        
+        env->log_set_config(env, DB_LOG_AUTO_REMOVE, 1);
+    }
     
     /* if no home dir existed, we create it */
     if (0 != access(bdb_settings.env_home, F_OK)) {

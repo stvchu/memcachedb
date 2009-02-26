@@ -23,6 +23,9 @@
 void stats_bdb(char *temp){
     char *pos = temp;
     int ret;
+    u_int32_t gbytes = 0;
+    u_int32_t bytes = 0;
+    int ncache = 0;
     /* get bdb version */
     pos += sprintf(pos, "STAT db_ver %d.%d.%d\r\n", bdb_version.majver, 
                                                     bdb_version.minver, 
@@ -40,9 +43,15 @@ void stats_bdb(char *temp){
             pos += sprintf(pos, "STAT db_type hash\r\n");
         }
     }
-    pos += sprintf(pos, "STAT cache_size %u\r\n", bdb_settings.cache_size);
+    
+    /* get cache size */
+    if((ret = env->get_cachesize(env, &gbytes, &bytes, &ncache)) == 0){
+        pos += sprintf(pos, "STAT cache_size %lu/%lu/%d\r\n", gbytes, bytes, ncache);
+    }
+    
     pos += sprintf(pos, "STAT txn_lg_bsize %u\r\n", bdb_settings.txn_lg_bsize);
     pos += sprintf(pos, "STAT txn_nosync %d\r\n", bdb_settings.txn_nosync);
+    pos += sprintf(pos, "STAT log_auto_remove %d\r\n", bdb_settings.log_auto_remove);
     pos += sprintf(pos, "STAT dldetect_val %d\r\n", bdb_settings.dldetect_val);
     pos += sprintf(pos, "STAT chkpoint_val %d\r\n", bdb_settings.chkpoint_val);
     pos += sprintf(pos, "STAT memp_trickle_val %d\r\n", bdb_settings.memp_trickle_val);

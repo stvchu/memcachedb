@@ -124,11 +124,12 @@ enum mdb_rep_role { MDB_MASTER, MDB_CLIENT, MDB_UNKNOWN };
 struct bdb_settings {
     char *db_file;    /* db filename, where dbfile located. */
     char *env_home;    /* db env home dir path */
-    u_int32_t cache_size; /* cache size */
+    u_int64_t cache_size; /* cache size */
     u_int32_t txn_lg_bsize; /* transaction log buffer size */
     u_int32_t page_size;    /* underlying database pagesize*/
     DBTYPE db_type;
     int txn_nosync;    /* DB_TXN_NOSYNC flag, if 1 will lose transaction's durability for performance */
+    int log_auto_remove;    /* DB_LOG_AUTO_REMOVE flag, if 1 will make catastrophic recovery impossible. */
     int dldetect_val; /* do deadlock detect every *db_lock_detect_val* millisecond, 0 for disable */
     int chkpoint_val;  /* do checkpoint every *db_chkpoint_val* second, 0 for disable */
     int memp_trickle_val;  /* do memp_trickle every *memp_trickle_val* second, 0 for disable */

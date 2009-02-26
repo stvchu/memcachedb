@@ -1260,7 +1260,8 @@ static void process_update_command(conn *c, token_t *tokens, const size_t ntoken
     exptime = strtol(tokens[3].value, NULL, 10);
     vlen = strtol(tokens[4].value, NULL, 10);
 
-    if(errno == ERANGE || ((flags == 0 || exptime == 0) && errno == EINVAL)) {
+    if(errno == ERANGE || ((flags == 0 || exptime == 0) && errno == EINVAL)
+       || vlen < 0) {
         out_string(c, "CLIENT_ERROR bad command line format");
         return;
     }
@@ -2348,6 +2349,7 @@ static void usage(void) {
     printf("-e <num>      percent of the pages in the cache that should be clean, default is 60%%\n");
     printf("-D <num>      do deadlock detecting every <num> millisecond, 0 for disable, default is 100ms\n");
     printf("-N            enable DB_TXN_NOSYNC to gain big performance improved, default is off\n");
+    printf("-E            automatically remove log files that are no longer needed\n");
     printf("-X            allocate region memory from the heap, default is off\n");
     printf("--------------------Replication Options-------------------------------\n");
     printf("-R            identifies the host and port used by this site (required).\n");
@@ -2564,7 +2566,7 @@ int main (int argc, char **argv) {
     setbuf(stderr, NULL);
 
     /* process arguments */
-    while ((c = getopt(argc, argv, "a:U:p:s:c:hivl:dru:P:t:b:f:H:B:m:A:L:C:T:e:D:NXMSR:O:n:")) != -1) {
+    while ((c = getopt(argc, argv, "a:U:p:s:c:hivl:dru:P:t:b:f:H:B:m:A:L:C:T:e:D:NEXMSR:O:n:")) != -1) {
         switch (c) {
         case 'a':
             /* access for unix domain socket, as octal mask (like chmod)*/
@@ -2643,7 +2645,7 @@ int main (int argc, char **argv) {
             }
             break;
         case 'm':
-            bdb_settings.cache_size = atoi(optarg) * 1024 * 1024;
+            bdb_settings.cache_size = atoi(optarg) * 1024uLL * 1024uLL;
             break;
         case 'A':
             bdb_settings.page_size = atoi(optarg);
@@ -2670,6 +2672,9 @@ int main (int argc, char **argv) {
             break;
         case 'N':
             bdb_settings.txn_nosync = 1;
+            break;
+        case 'E':
+            bdb_settings.log_auto_remove = 1;
             break;
         case 'X':
             bdb_settings.env_flags |= DB_PRIVATE;
