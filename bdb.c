@@ -535,5 +535,3 @@ int bdb_defcmp(void *a, size_t i, void *b, size_t j){
             return ((long)*p1 - (long)*p2);
     return ((long)i - (long)j);
 }
-
-

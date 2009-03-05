@@ -83,10 +83,29 @@
 # include <unistd.h>
 #endif
 
+/* 64-bit Portable printf */
+/* printf macros for size_t, in the style of inttypes.h */
+#ifdef _LP64
+#define __PRIS_PREFIX "z"
+#else
+#define __PRIS_PREFIX
+#endif
+
+/* Use these macros after a % in a printf format string
+   to get correct 32/64 bit behavior, like this:
+   size_t size = records.size();
+   printf("%"PRIuS"\n", size); */
+
+#define PRIdS __PRIS_PREFIX "d"
+#define PRIxS __PRIS_PREFIX "x"
+#define PRIuS __PRIS_PREFIX "u"
+#define PRIXS __PRIS_PREFIX "X"
+#define PRIoS __PRIS_PREFIX "o"
+
 struct stats {
-    unsigned int  curr_conns;
-    unsigned int  total_conns;
-    unsigned int  conn_structs;
+    uint32_t      curr_conns;
+    uint32_t      total_conns;
+    uint32_t      conn_structs;
     uint64_t      get_cmds;
     uint64_t      set_cmds;
     uint64_t      get_hits;

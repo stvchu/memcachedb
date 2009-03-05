@@ -18,6 +18,7 @@
  */
   
 #include "memcachedb.h"
+#include <stdlib.h>
 #include <db.h>
 
 void stats_bdb(char *temp){

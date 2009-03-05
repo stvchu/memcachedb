@@ -1,3 +1,6 @@
+2009-03-05 Steve Chu <stvchu@gmail.com>
+  * Fix some warnings on 64-bit compiler, thanks to Nicolas<n.favrefelix@gmail.com>
+
 2009-02-26 Steve Chu <stvchu@gmail.com>
   * Bugfix: 64bit box can not specify memory pool size larger than 2G with '-m' option
   * new option '-E' to automatically remove log files that are no longer needed, but PLEASE NOTICE:

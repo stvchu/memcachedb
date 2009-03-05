@@ -837,26 +837,26 @@ static void process_stat(conn *c, token_t *tokens, const size_t ntokens) {
 #endif /* !WIN32 */
 
         STATS_LOCK();
-        pos += sprintf(pos, "STAT pid %u\r\n", pid);
-        pos += sprintf(pos, "STAT uptime %ld\r\n", now - stats.started);
-        pos += sprintf(pos, "STAT time %ld\r\n", now);
+        pos += sprintf(pos, "STAT pid %ld\r\n", (long)pid);
+        pos += sprintf(pos, "STAT uptime %"PRIuS"\r\n", now - stats.started);
+        pos += sprintf(pos, "STAT time %"PRIuS"\r\n", now);
         pos += sprintf(pos, "STAT version " VERSION "\r\n");
-        pos += sprintf(pos, "STAT pointer_size %d\r\n", 8 * sizeof(void *));
+        pos += sprintf(pos, "STAT pointer_size %"PRIuS"\r\n", 8 * sizeof(void *));
 #ifndef WIN32
         pos += sprintf(pos, "STAT rusage_user %ld.%06ld\r\n", usage.ru_utime.tv_sec, usage.ru_utime.tv_usec);
         pos += sprintf(pos, "STAT rusage_system %ld.%06ld\r\n", usage.ru_stime.tv_sec, usage.ru_stime.tv_usec);
 #endif /* !WIN32 */
-        pos += sprintf(pos, "STAT ibuffer_size %u\r\n", settings.item_buf_size);
-        pos += sprintf(pos, "STAT curr_connections %u\r\n", stats.curr_conns - 1); /* ignore listening conn */
-        pos += sprintf(pos, "STAT total_connections %u\r\n", stats.total_conns);
-        pos += sprintf(pos, "STAT connection_structures %u\r\n", stats.conn_structs);
-        pos += sprintf(pos, "STAT cmd_get %llu\r\n", stats.get_cmds);
-        pos += sprintf(pos, "STAT cmd_set %llu\r\n", stats.set_cmds);
-        pos += sprintf(pos, "STAT get_hits %llu\r\n", stats.get_hits);
-        pos += sprintf(pos, "STAT get_misses %llu\r\n", stats.get_misses);
-        pos += sprintf(pos, "STAT bytes_read %llu\r\n", stats.bytes_read);
-        pos += sprintf(pos, "STAT bytes_written %llu\r\n", stats.bytes_written);
-        pos += sprintf(pos, "STAT threads %u\r\n", settings.num_threads);
+        pos += sprintf(pos, "STAT item_buf_size %"PRIuS"\r\n", settings.item_buf_size);
+        pos += sprintf(pos, "STAT curr_connections %"PRIu32"\r\n", stats.curr_conns - 1); /* ignore listening conn */
+        pos += sprintf(pos, "STAT total_connections %"PRIu32"\r\n", stats.total_conns);
+        pos += sprintf(pos, "STAT connection_structures %"PRIu32"\r\n", stats.conn_structs);
+        pos += sprintf(pos, "STAT cmd_get %"PRIu64"\r\n", stats.get_cmds);
+        pos += sprintf(pos, "STAT cmd_set %"PRIu64"\r\n", stats.set_cmds);
+        pos += sprintf(pos, "STAT get_hits %"PRIu64"\r\n", stats.get_hits);
+        pos += sprintf(pos, "STAT get_misses %"PRIu64"\r\n", stats.get_misses);
+        pos += sprintf(pos, "STAT bytes_read %"PRIu64"\r\n", stats.bytes_read);
+        pos += sprintf(pos, "STAT bytes_written %"PRIu64"\r\n", stats.bytes_written);
+        pos += sprintf(pos, "STAT threads %d\r\n", settings.num_threads);
         pos += sprintf(pos, "END");
         STATS_UNLOCK();
         out_string(c, temp);
@@ -1348,7 +1348,7 @@ char *do_add_delta(const bool incr, const int64_t delta, char *buf, char *key, s
         if (delta >= value) value = 0;
         else value -= delta;
     }
-    vlen = sprintf(buf, "%llu", value);
+    vlen = sprintf(buf, "%"PRId64, value);
 
     /* flags was already lost - so recover them from ITEM_suffix(it) */
     flags = (int) strtol(ITEM_suffix(old_it), (char **) NULL, 10);
@@ -1568,8 +1568,8 @@ static void process_command(conn *c, char *command) {
         process_stat(c, tokens, ntokens);
 
     } else if (ntokens >= 2 && ntokens <= 3 && (strcmp(tokens[COMMAND_TOKEN].value, "flush_all") == 0)) {
-        out_string(c, "OK");
-        return;
+
+        out_string(c, "ERROR");
 
     } else if (ntokens == 2 && (strcmp(tokens[COMMAND_TOKEN].value, "version") == 0)) {
 

@@ -188,18 +188,18 @@ int item_free(item *it) {
     ntotal = ITEM_ntotal(it);
     if (ntotal > settings.item_buf_size){
         if (settings.verbose > 1) {
-            fprintf(stderr, "ntotal: %d, use free() directly.\n", ntotal);
+            fprintf(stderr, "ntotal: %"PRIuS", use free() directly.\n", ntotal);
         }
         free(it);   
     }else{
         if (0 != item_add_to_freelist(it)) {
             if (settings.verbose > 1) {
-                fprintf(stderr, "ntotal: %d, add a item buffer to freelist fail, use free() directly.\n", ntotal);
+                fprintf(stderr, "ntotal: %"PRIuS", add a item buffer to freelist fail, use free() directly.\n", ntotal);
             }
             free(it);   
         }else{
             if (settings.verbose > 1) {
-                fprintf(stderr, "ntotal: %d, add a item buffer to freelist.\n", ntotal);
+                fprintf(stderr, "ntotal: %"PRIuS", add a item buffer to freelist.\n", ntotal);
             }
         }
     }
