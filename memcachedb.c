@@ -2342,6 +2342,7 @@ static void usage(void) {
     printf("-A <num>      underlying page size in bytes, default is 4096, (512B ~ 64KB, power-of-two)\n");
     printf("-f <file>     filename of database, default is 'data.db'\n");
     printf("-H <dir>      env home of database, default is '/data1/memcachedb'\n");
+    printf("-G <dir>      log dir of database, default is the same as env home\n");
     printf("-B <db_type>  type of database, 'btree' or 'hash'. default is 'btree'\n");
     printf("-L <num>      log buffer size in kbytes, default is 4MB\n");
     printf("-C <num>      do checkpoint every <num> seconds, 0 for disable, default is 5 minutes\n");
@@ -2566,7 +2567,7 @@ int main (int argc, char **argv) {
     setbuf(stderr, NULL);
 
     /* process arguments */
-    while ((c = getopt(argc, argv, "a:U:p:s:c:hivl:dru:P:t:b:f:H:B:m:A:L:C:T:e:D:NEXMSR:O:n:")) != -1) {
+    while ((c = getopt(argc, argv, "a:U:p:s:c:hivl:dru:P:t:b:f:H:G:B:m:A:L:C:T:e:D:NEXMSR:O:n:")) != -1) {
         switch (c) {
         case 'a':
             /* access for unix domain socket, as octal mask (like chmod)*/
@@ -2633,6 +2634,9 @@ int main (int argc, char **argv) {
             break;
         case 'H':
             bdb_settings.env_home = optarg;
+            break;
+        case 'G':
+            bdb_settings.log_home = optarg;
             break;
         case 'B':
             if (0 == strcmp(optarg, "btree")){

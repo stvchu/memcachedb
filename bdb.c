@@ -39,6 +39,7 @@ void bdb_settings_init(void)
 {
     bdb_settings.db_file = DBFILE;
     bdb_settings.env_home = DBHOME;
+    bdb_settings.log_home = NULL;
     bdb_settings.cache_size = 256 * 1024 * 1024; /* default is 256MB */ 
     bdb_settings.txn_lg_bsize = 4 * 1024 * 1024; /* default is 4MB */ 
     bdb_settings.page_size = 4096;  /* default is 4K */
@@ -125,6 +126,18 @@ void bdb_env_init(void){
                     db_strerror(ret));
             exit(EXIT_FAILURE);
         }
+    }
+    
+    /* set log dir*/
+    if (bdb_settings.log_home != NULL){
+        /* if no log dir existed, we create it */
+        if (0 != access(bdb_settings.log_home, F_OK)) {
+            if (0 != mkdir(bdb_settings.log_home, 0750)) {
+                fprintf(stderr, "mkdir log_home error:[%s]\n", bdb_settings.log_home);
+                exit(EXIT_FAILURE);
+            }
+        }
+        env->set_lg_dir(env, bdb_settings.log_home);
     }
     
     /* set MPOOL size */

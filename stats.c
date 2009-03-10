@@ -27,6 +27,10 @@ void stats_bdb(char *temp){
     u_int32_t gbytes = 0;
     u_int32_t bytes = 0;
     int ncache = 0;
+    
+    char *log_home;
+    char *env_home;
+    
     /* get bdb version */
     pos += sprintf(pos, "STAT db_ver %d.%d.%d\r\n", bdb_version.majver, 
                                                     bdb_version.minver, 
@@ -34,6 +38,16 @@ void stats_bdb(char *temp){
     /* get page size */
     if((ret = dbp->get_pagesize(dbp, &bdb_settings.page_size)) == 0){
         pos += sprintf(pos, "STAT page_size %u\r\n", bdb_settings.page_size);
+    }
+
+    /* get env dir */
+    if((ret = env->get_home(env, (const char **)&env_home)) == 0){
+        pos += sprintf(pos, "STAT env_home %s\r\n", env_home);
+    }
+
+    /* get log dir */
+    if((ret = env->get_lg_dir(env, (const char **)&log_home)) == 0){
+        pos += sprintf(pos, "STAT log_home %s\r\n", log_home);
     }
     
     /* get database type */

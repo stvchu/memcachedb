@@ -143,6 +143,7 @@ enum mdb_rep_role { MDB_MASTER, MDB_CLIENT, MDB_UNKNOWN };
 struct bdb_settings {
     char *db_file;    /* db filename, where dbfile located. */
     char *env_home;    /* db env home dir path */
+    char *log_home;    /* db log home dir path*/
     u_int64_t cache_size; /* cache size */
     u_int32_t txn_lg_bsize; /* transaction log buffer size */
     u_int32_t page_size;    /* underlying database pagesize*/

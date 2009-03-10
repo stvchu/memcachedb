@@ -1,3 +1,6 @@
+2009-03-10 Steve Chu <stvchu@gmail.com>
+  * new option '-G' for setting log file dir(sometime we want to put log files in a different place, such as SSD disk partition) 
+
 2009-03-05 Steve Chu <stvchu@gmail.com>
   * Fix some warnings on 64-bit compiler, thanks to Nicolas<n.favrefelix@gmail.com>
 
