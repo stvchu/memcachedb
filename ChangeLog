@@ -1,3 +1,6 @@
+2009-04-15 Steve Chu <stvchu@gmail.com>
+  * Remove stats malloc and stats maps due to a security issue. Thanks <jtesta@positronsecurity.com> for reporting this.
+
 2009-03-10 Steve Chu <stvchu@gmail.com>
   * new option '-G' for setting log file dir(sometime we want to put log files in a different place, such as SSD disk partition) 
 

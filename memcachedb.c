@@ -907,67 +907,6 @@ static void process_stat(conn *c, token_t *tokens, const size_t ntokens) {
         }
     }
 
-#ifdef HAVE_MALLOC_H
-#ifdef HAVE_STRUCT_MALLINFO
-    if (strcmp(subcommand, "malloc") == 0) {
-        char temp[512];
-        struct mallinfo info;
-        char *pos = temp;
-
-        info = mallinfo();
-        pos += sprintf(pos, "STAT arena_size %d\r\n", info.arena);
-        pos += sprintf(pos, "STAT free_chunks %d\r\n", info.ordblks);
-        pos += sprintf(pos, "STAT fastbin_blocks %d\r\n", info.smblks);
-        pos += sprintf(pos, "STAT mmapped_regions %d\r\n", info.hblks);
-        pos += sprintf(pos, "STAT mmapped_space %d\r\n", info.hblkhd);
-        pos += sprintf(pos, "STAT max_total_alloc %d\r\n", info.usmblks);
-        pos += sprintf(pos, "STAT fastbin_space %d\r\n", info.fsmblks);
-        pos += sprintf(pos, "STAT total_alloc %d\r\n", info.uordblks);
-        pos += sprintf(pos, "STAT total_free %d\r\n", info.fordblks);
-        pos += sprintf(pos, "STAT releasable_space %d\r\nEND", info.keepcost);
-        out_string(c, temp);
-        return;
-    }
-#endif /* HAVE_STRUCT_MALLINFO */
-#endif /* HAVE_MALLOC_H */
-
-#if !defined(WIN32) || !defined(__APPLE__)
-    if (strcmp(subcommand, "maps") == 0) {
-        char *wbuf;
-        int wsize = 8192; /* should be enough */
-        int fd;
-        int res;
-
-        if ((wbuf = (char *)malloc(wsize)) == NULL) {
-            out_string(c, "SERVER_ERROR out of memory writing stats maps");
-            return;
-        }
-
-        fd = open("/proc/self/maps", O_RDONLY);
-        if (fd == -1) {
-            out_string(c, "SERVER_ERROR cannot open the maps file");
-            free(wbuf);
-            return;
-        }
-
-        res = read(fd, wbuf, wsize - 6);  /* 6 = END\r\n\0 */
-        if (res == wsize - 6) {
-            out_string(c, "SERVER_ERROR buffer overflow");
-            free(wbuf); close(fd);
-            return;
-        }
-        if (res == 0 || res == -1) {
-            out_string(c, "SERVER_ERROR can't read the maps file");
-            free(wbuf); close(fd);
-            return;
-        }
-        memcpy(wbuf + res, "END\r\n", 5);
-        write_and_free(c, wbuf, res + 5);
-        close(fd);
-        return;
-    }
-#endif
-
     out_string(c, "ERROR");
 }
 
